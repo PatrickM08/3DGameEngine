@@ -1,0 +1,6 @@
+Standards: 
+files - _
+structs - capitalized
+functions - camelCase
+variables - camelCase
+classes - capitalized camelCase

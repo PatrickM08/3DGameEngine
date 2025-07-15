@@ -1,0 +1,39 @@
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.vcxproj.user
+*.vcxproj.filters
+
+# Build directories
+x64/
+Debug/
+Release/
+obj/
+bin/
+
+# Build outputs
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+*.ilk
+*.log
+*.tlog
+*.idb
+*.ipch
+
+# Visual Studio database files
+*.VC.db
+*.VC.VC.opendb
+*.sqlite
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+EOF

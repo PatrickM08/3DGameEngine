@@ -1,0 +1,58 @@
+# Visual Studio files (current and parent level)
+.vs/
+../.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vcxproj.user
+*.vcxproj.filters
+
+# Build directories (current and parent level)
+x64/
+../x64/
+Debug/
+../Debug/
+Release/
+../Release/
+obj/
+../obj/
+bin/
+../bin/
+
+# Build outputs
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+*.ilk
+*.log
+*.tlog
+*.idb
+*.ipch
+
+# Visual Studio database files
+*.VC.db
+*.VC.VC.opendb
+*.sqlite
+
+# Visual Studio profiler
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
