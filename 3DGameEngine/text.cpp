@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <unordered_map>
 #include "shader_s.h"
+#include "asset_manager.hpp"
 #include "stb_image.h"
 #include <glad/glad.h>
 #include "text.hpp"
@@ -10,9 +11,9 @@
 #include <glm/glm.hpp>  
 const int MAX_TEXT_LENGTH = 30;
 
-void setupTextBuffers(unsigned int& textVBO, unsigned int& textVAO) {
-    glBindVertexArray(textVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+void setupTextBuffers(MeshBuffers& text) {
+    glBindVertexArray(text.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, text.VBO);
     glBufferData(GL_ARRAY_BUFFER, MAX_TEXT_LENGTH * 24 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
 
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);

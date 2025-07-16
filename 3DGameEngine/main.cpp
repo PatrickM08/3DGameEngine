@@ -11,6 +11,7 @@
 #include "shader_s.h"
 #include "camera.h"
 #include "text.hpp"
+#include "asset_manager.hpp"
 
 #include <iostream>
 #include <unordered_map>
@@ -33,44 +34,83 @@ struct Framebuffer {
     Shader shader;
 };
 
-struct MeshData {
-    uint32_t VBO;
-    uint32_t VAO;
-    uint32_t EBO;
-
-};
-
 Framebuffer createFrameBuffer(const char* vsPath, const char* fsPath, unsigned int width, unsigned int height);
 
-// settings
-unsigned int SCR_WIDTH = 1600;
-unsigned int SCR_HEIGHT = 1200;
-const int MAX_TEXT_LENGTH = 30;
+struct Resources {
+    Shader lightingShader;
+    Shader lightCubeShader;
+    Shader textShader;
+    Shader skyboxShader;
+    MeshBuffers cube;
+    MeshBuffers light;
+    MeshBuffers text;
+    MeshBuffers skybox;
+    MeshBuffers quad;
+    unsigned int diffuseMap;
+    unsigned int specularMap;
+    unsigned int bitmapFont;
+    unsigned int skyboxTexture;
+    std::unordered_map<int, Glyph> glyphs;
+    
+    Resources()
+        : lightingShader("vshader.vs", "fshader.fs"),
+        lightCubeShader("light_cube.vs", "light_cube.fs"),
+        textShader("text_vertex_shader.vs", "text_fragment_shader.fs"),
+        skyboxShader("skybox_vshader.vs", "skybox_fshader.fs")
+    {
+        createCubeBuffers(cube);
+        light.VBO = cube.VBO;
+        createLightBuffers(light);
 
-// camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
-float lastX = SCR_WIDTH / 2.0f;
-float lastY = SCR_HEIGHT / 2.0f;
-bool firstMouse = true;
+        diffuseMap = loadTexture("container2.png");
+        specularMap = loadTexture("container2_specular.png");
 
-// timing
-float deltaTime = 0.0f;
-float lastFrame = 0.0f;
+        glyphs = parseFont("ariallatin.fnt");
+        bitmapFont = loadBitmapFont("ariallatin_0.png", glyphs);
+        setupTextBuffers(text);
 
-// lighting
-glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
+        createSkyboxbuffers(skybox);
 
-// post-processing
-bool postProcessingEnabled = false;
+        const char* skyboxFaces[] = {
+        "right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"
+        };
+        const int NUM_SKYBOX_FACES = 6;
+        skyboxTexture = loadCubemap(skyboxFaces, NUM_SKYBOX_FACES);
 
-// FPS
-bool showFPS = true;
+        createQuadBuffers(quad);
+    }
+};
+
+struct RenderState {
+    unsigned int scr_width = 1600;
+    unsigned int scr_height = 1200;
+    Camera camera{ glm::vec3(0.0f, 0.0f, 3.0f) };
+    glm::vec3 lightPos{ 1.2f, 1.0f, 2.0f };
+
+    // Timing
+    float deltaTime = 0.0f;
+    float lastFrame = 0.0f;
+
+    // Settings
+    bool postProcessingEnabled = false;
+    bool showFPS = true;
+
+    // Mouse
+    float lastX = scr_width / 2.0f;
+    float lastY = scr_height / 2.0f;
+    bool firstMouse = true;
+
+    // FPS display
+    char fpsText[20] = "0";
+    int counter = 1;
+};
 
 int main()
 {
+    RenderState state;
     GLFWwindow* window;
     try {
-        window = initWindow(SCR_WIDTH, SCR_HEIGHT, "Draft");
+        window = initWindow(state.scr_width, state.scr_height, "Draft");
     }
     catch (const std::exception& e){
         std::cerr << "Window init error: " << e.what() << "\n";
@@ -83,235 +123,26 @@ int main()
     configureOpenglState(depthTestEnabled,blendEnabled,faceCullEnabled);
     //*******                   *******
     
-
-    Shader lightingShader("vshader.vs", "fshader.fs");
-    Shader lightCubeShader("light_cube.vs", "light_cube.fs");
-    Shader textShader("text_vertex_shader.vs", "text_fragment_shader.fs");
-    Shader skyboxShader("skybox_vshader.vs", "skybox_fshader.fs");
-
-
-    // set up vertex data (and buffer(s)) and configure vertex attributes
-    // ------------------------------------------------------------------
-    float vertices[] = {
-        // Back face (-Z)
-        -0.5f, -0.5f, -0.5f,  0, 0, -1,  0.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  0, 0, -1,  1.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  0, 0, -1,  1.0f, 0.0f,
-
-         0.5f,  0.5f, -0.5f,  0, 0, -1,  1.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0, 0, -1,  0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  0, 0, -1,  0.0f, 1.0f,
-
-        // Front face (+Z)
-        -0.5f, -0.5f,  0.5f,  0, 0, 1,  0.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  0, 0, 1,  1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  0, 0, 1,  1.0f, 1.0f,
-
-         0.5f,  0.5f,  0.5f,  0, 0, 1,  1.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f,  0, 0, 1,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0, 0, 1,  0.0f, 0.0f,
-
-        // Left face (-X)
-        -0.5f,  0.5f,  0.5f,  -1, 0, 0,  1.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f, -1, 0, 0,  1.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f, -1, 0, 0,  0.0f, 1.0f,
-
-        -0.5f, -0.5f, -0.5f, -1, 0, 0,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f, -1, 0, 0,  0.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f, -1, 0, 0,  1.0f, 0.0f,
-
-        // Right face (+X)
-         0.5f,  0.5f,  0.5f,  1, 0, 0,  1.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  1, 0, 0,  0.0f, 1.0f,
-         0.5f,  0.5f, -0.5f,  1, 0, 0,  1.0f, 1.0f,
-
-         0.5f, -0.5f, -0.5f,  1, 0, 0,  0.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  1, 0, 0,  1.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1, 0, 0,  0.0f, 0.0f,
-
-         // Bottom face (-Y)
-         -0.5f, -0.5f, -0.5f,  0, -1, 0,  0.0f, 1.0f,
-          0.5f, -0.5f, -0.5f,  0, -1, 0,  1.0f, 1.0f,
-          0.5f, -0.5f,  0.5f,  0, -1, 0,  1.0f, 0.0f,
-
-          0.5f, -0.5f,  0.5f,  0, -1, 0,  1.0f, 0.0f,
-         -0.5f, -0.5f,  0.5f,  0, -1, 0,  0.0f, 0.0f,
-         -0.5f, -0.5f, -0.5f,  0, -1, 0,  0.0f, 1.0f,
-
-         // Top face (+Y)
-         -0.5f,  0.5f, -0.5f,  0, 1, 0,  0.0f, 1.0f,
-          0.5f,  0.5f,  0.5f,  0, 1, 0,  1.0f, 0.0f,
-          0.5f,  0.5f, -0.5f,  0, 1, 0,  1.0f, 1.0f,
-
-          0.5f,  0.5f,  0.5f,  0, 1, 0,  1.0f, 0.0f,
-         -0.5f,  0.5f, -0.5f,  0, 1, 0,  0.0f, 1.0f,
-         -0.5f,  0.5f,  0.5f,  0, 1, 0,  0.0f, 0.0f
-    };
-
-
-    // first, configure the cube's VAO (and VBO)
-    unsigned int VBO, instancedVBO, cubeVAO;
-    glGenVertexArrays(1, &cubeVAO);
-    glGenBuffers(1, &instancedVBO);
-    glGenBuffers(1, &VBO);
-
-    glBindVertexArray(cubeVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-
-    const int NUM_BOXES = 1024;
-    int index = 0;
-    glm::vec3 translations[NUM_BOXES];
-    for (int i = 0; i < 32; i++) {
-        for (int j = 0; j < 32; j++) {
-            translations[index].x = i * 2;
-            translations[index].y = 0;
-            translations[index].z = -j * 2;
-            index++;
-        }
-    }
-
-    glBindBuffer(GL_ARRAY_BUFFER, instancedVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * NUM_BOXES, translations, GL_STATIC_DRAW);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glEnableVertexAttribArray(3);
-    glVertexAttribDivisor(3, 1);
-
-    // second, configure the light's VAO (VBO stays the same; the vertices are the same for the light object which is also a 3D cube)
-    unsigned int lightCubeVAO;
-    glGenVertexArrays(1, &lightCubeVAO);
-    glBindVertexArray(lightCubeVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    // note that we update the lamp's position attribute's stride to reflect the updated buffer data
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    // load textures (we now use a utility function to keep the code more organized)
-    // -----------------------------------------------------------------------------
-    unsigned int diffuseMap = loadTexture("container2.png");
-    unsigned int specularMap = loadTexture("container2_specular.png");
-
+    Resources resources;
+    
     // shader configuration
     // --------------------
-    lightingShader.use();
-    lightingShader.setIntUniform("material.diffuse", 0);
-    lightingShader.setIntUniform("material.specular", 1);
+    resources.lightingShader.use();
+    resources.lightingShader.setIntUniform("material.diffuse", 0);
+    resources.lightingShader.setIntUniform("material.specular", 1);
 
     
-    std::unordered_map<int, Glyph> glyphs = parseFont("ariallatin.fnt");
-    unsigned int bitmapFont = loadBitmapFont("ariallatin_0.png", glyphs);
-    textShader.use();
-    textShader.setIntUniform("textTexture", 0);
-    unsigned int textVBO, textVAO;
-    glGenVertexArrays(1, &textVAO);
-    glGenBuffers(1, &textVBO);
-    setupTextBuffers(textVBO, textVAO);
+    resources.textShader.use();
+    resources.textShader.setIntUniform("textTexture", 0);
 
     glm::mat4 projection;
     glm::mat4 view;
-
-    int counter = 1;
-    char fpsText[20] = "0";
     
 
-    Framebuffer framebuffer = createFrameBuffer("fb_vertex_shader.vs", "fb_fragment_shader.fs", SCR_WIDTH, SCR_HEIGHT);
+    Framebuffer framebuffer = createFrameBuffer("fb_vertex_shader.vs", "fb_fragment_shader.fs", state.scr_width, state.scr_height);
 
-    float quadVertices[] = {
-        // positions   // texCoords
-        -1.0f,  1.0f,  0.0f, 1.0f,
-        -1.0f, -1.0f,  0.0f, 0.0f,
-         1.0f, -1.0f,  1.0f, 0.0f,
-
-        -1.0f,  1.0f,  0.0f, 1.0f,
-         1.0f, -1.0f,  1.0f, 0.0f,
-         1.0f,  1.0f,  1.0f, 1.0f
-    };
-
-    unsigned int quadVBO, quadVAO;
-    glGenVertexArrays(1, &quadVAO);
-    glGenBuffers(1, &quadVBO);
-
-    glBindVertexArray(quadVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    const char* skyboxFaces[] = {
-        "right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"
-    };
-    const int NUM_SKYBOX_FACES = 6;
-    unsigned int skyboxTexture = loadCubemap(skyboxFaces, NUM_SKYBOX_FACES);
-    if (skyboxTexture == 0) {
-        std::cout << "Failed to load skybox texture!" << std::endl;
-    }
-
-    float skyboxVertices[] = {
-        // positions          
-        -1.0f,  1.0f, -1.0f,
-        -1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-
-        -1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
-
-         1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-
-        -1.0f, -1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
-
-        -1.0f,  1.0f, -1.0f,
-         1.0f,  1.0f, -1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f, -1.0f,
-
-        -1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-         1.0f, -1.0f,  1.0f
-    };
-    unsigned int skyboxVAO, skyboxVBO;
-    glGenVertexArrays(1, &skyboxVAO);
-    glGenBuffers(1, &skyboxVBO);
-    glBindVertexArray(skyboxVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-
-    skyboxShader.use();
-    skyboxShader.setIntUniform("skybox", 0);
+    resources.skyboxShader.use();
+    resources.skyboxShader.setIntUniform("skybox", 0);
 
 
     while (!glfwWindowShouldClose(window))
@@ -319,13 +150,13 @@ int main()
         // per-frame time logic
         // --------------------
         float currentFrame = static_cast<float>(glfwGetTime());
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
-        float fps = 1.0f / deltaTime;
-        counter += 1;
-        counter = counter % 10;
-        if (counter == 0) {
-            snprintf(fpsText, sizeof(fpsText), "FPS: %.0f", fps);
+        state.deltaTime = currentFrame - state.lastFrame;
+        state.lastFrame = currentFrame;
+        float fps = 1.0f / state.deltaTime;
+        state.counter += 1;
+        state.counter = state.counter % 10;
+        if (state.counter == 0) {
+            snprintf(state.fpsText, sizeof(state.fpsText), "FPS: %.0f", fps);
         }
 
         // input
@@ -340,81 +171,81 @@ int main()
         glEnable(GL_DEPTH_TEST);
 
         // be sure to activate shader when setting uniforms/drawing objects
-        lightingShader.use();
-        lightingShader.setVec3Uniform("light.position", lightPos);
-        lightingShader.setVec3Uniform("viewPos", camera.Position);
+        resources.lightingShader.use();
+        resources.lightingShader.setVec3Uniform("light.position", state.lightPos);
+        resources.lightingShader.setVec3Uniform("viewPos", state.camera.Position);
 
         // light properties
-        lightingShader.setVec3Uniform("light.ambient", 0.2f, 0.2f, 0.2f);
-        lightingShader.setVec3Uniform("light.diffuse", 0.5f, 0.5f, 0.5f);
-        lightingShader.setVec3Uniform("light.specular", 1.0f, 1.0f, 1.0f);
+        resources.lightingShader.setVec3Uniform("light.ambient", 0.2f, 0.2f, 0.2f);
+        resources.lightingShader.setVec3Uniform("light.diffuse", 0.5f, 0.5f, 0.5f);
+        resources.lightingShader.setVec3Uniform("light.specular", 1.0f, 1.0f, 1.0f);
 
         // material properties
-        lightingShader.setFloatUniform("material.shininess", 64.0f);
+        resources.lightingShader.setFloatUniform("material.shininess", 64.0f);
 
         // view/projection transformations
-        projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        view = camera.GetViewMatrix();
-        lightingShader.setMat4Uniform("projection", projection);
-        lightingShader.setMat4Uniform("view", view);
+        projection = glm::perspective(glm::radians(state.camera.Zoom), (float)state.scr_width / (float)state.scr_height, 0.1f, 100.0f);
+        view = state.camera.GetViewMatrix();
+        resources.lightingShader.setMat4Uniform("projection", projection);
+        resources.lightingShader.setMat4Uniform("view", view);
 
         // world transformation
         glm::mat4 model = glm::mat4(1.0f);
-        lightingShader.setMat4Uniform("model", model);
+        resources.lightingShader.setMat4Uniform("model", model);
 
         // bind diffuse map
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, diffuseMap);
+        glBindTexture(GL_TEXTURE_2D, resources.diffuseMap);
         // bind specular map
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, specularMap);
+        glBindTexture(GL_TEXTURE_2D, resources.specularMap);
 
         // render the cube
-        glBindVertexArray(cubeVAO);
+        glBindVertexArray(resources.cube.VAO);
         glDrawArraysInstanced(GL_TRIANGLES, 0, 36, 1000);
 
         // also draw the lamp object
-        lightCubeShader.use();
-        lightCubeShader.setMat4Uniform("projection", projection);
-        lightCubeShader.setMat4Uniform("view", view);
+        resources.lightCubeShader.use();
+        resources.lightCubeShader.setMat4Uniform("projection", projection);
+        resources.lightCubeShader.setMat4Uniform("view", view);
         model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPos);
+        model = glm::translate(model, state.lightPos);
         model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
-        lightCubeShader.setMat4Uniform("model", model);
+        resources.lightCubeShader.setMat4Uniform("model", model);
 
-        glBindVertexArray(lightCubeVAO);
+        glBindVertexArray(resources.light.VAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
         glDepthFunc(GL_LEQUAL);
-        skyboxShader.use();
-        view = glm::mat4(glm::mat3(camera.GetViewMatrix()));
-        skyboxShader.setMat4Uniform("view", view);
-        skyboxShader.setMat4Uniform("projection", projection);
-        glBindVertexArray(skyboxVAO);
+        resources.skyboxShader.use();
+        view = glm::mat4(glm::mat3(state.camera.GetViewMatrix()));
+        resources.skyboxShader.setMat4Uniform("view", view);
+        resources.skyboxShader.setMat4Uniform("projection", projection);
+        glBindVertexArray(resources.skybox.VAO);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, resources.skyboxTexture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
         glDepthFunc(GL_LESS);
 
-        if (showFPS) {
+        if (state.showFPS) {
             glDisable(GL_DEPTH_TEST);
-            textShader.use();
+            resources.textShader.use();
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, bitmapFont);
-            glBindVertexArray(textVAO);
+            glBindTexture(GL_TEXTURE_2D, resources.bitmapFont);
+            glBindVertexArray(resources.text.VAO);
             float fontScale = 2;
             float fontX = 10;
             float fontY = 10;
-            char* fpsTextPointer = fpsText;
-            renderText(fpsTextPointer, fontX, fontY, fontScale, textVBO, textShader, SCR_WIDTH, SCR_HEIGHT, glyphs);
+            char* fpsTextPointer = state.fpsText;
+            renderText(fpsTextPointer, fontX, fontY, fontScale, resources.text.VBO, resources.textShader, state.scr_width, state.scr_height, resources.glyphs);
             glEnable(GL_DEPTH_TEST);
         }
 
-        if (postProcessingEnabled) {
+        if (state.postProcessingEnabled) {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             framebuffer.shader.use();
-            glBindVertexArray(quadVAO);
+            glBindVertexArray(resources.quad.VAO);
             glDisable(GL_DEPTH_TEST);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, framebuffer.textureAttachment);
@@ -423,7 +254,7 @@ int main()
         else {
             glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer.buffer);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-            glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, 
+            glBlitFramebuffer(0, 0, state.scr_width, state.scr_height, 0, 0, state.scr_width, state.scr_height, 
                                 GL_COLOR_BUFFER_BIT, GL_NEAREST);
         }
 
@@ -435,15 +266,11 @@ int main()
 
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
-    glDeleteVertexArrays(1, &cubeVAO);
-    glDeleteVertexArrays(1, &lightCubeVAO);
-    glDeleteVertexArrays(1, &quadVAO);
-    glDeleteVertexArrays(1, &textVAO);
-    glDeleteVertexArrays(1, &skyboxVAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &quadVBO);
-    glDeleteBuffers(1, &textVBO);
-    glDeleteBuffers(1, &skyboxVBO);
+    resources.cube.deleteBuffers();
+    resources.light.deleteBuffers();
+    resources.quad.deleteBuffers();
+    resources.skybox.deleteBuffers();
+    resources.text.deleteBuffers();
     glDeleteFramebuffers(1, &framebuffer.buffer);
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
@@ -454,7 +281,7 @@ int main()
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
-void processInput(GLFWwindow* window)
+void processInput(GLFWwindow* window, RenderState& state)
 {
     static bool eWasPressed = false;
     bool eIsPressed = glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS;
@@ -463,15 +290,15 @@ void processInput(GLFWwindow* window)
         glfwSetWindowShouldClose(window, true);
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.ProcessKeyboard(FORWARD, deltaTime);
+        state.camera.ProcessKeyboard(FORWARD, state.deltaTime);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.ProcessKeyboard(BACKWARD, deltaTime);
+        state.camera.ProcessKeyboard(BACKWARD, state.deltaTime);
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        camera.ProcessKeyboard(LEFT, deltaTime);
+        state.camera.ProcessKeyboard(LEFT, state.deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        camera.ProcessKeyboard(RIGHT, deltaTime);
+        state.camera.ProcessKeyboard(RIGHT, state.deltaTime);
     if (eIsPressed && !eWasPressed) {
-        showFPS = !showFPS;
+        state.showFPS = !state.showFPS;
     }
     eWasPressed = eIsPressed;
 }
@@ -483,8 +310,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     // make sure the viewport matches the new window dimensions; note that width and 
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
-    SCR_HEIGHT = height;
-    SCR_WIDTH = width;
+    //SCR_HEIGHT = height;
+    //SCR_WIDTH = width;
 }
 
 // glfw: whenever the mouse moves, this callback is called
