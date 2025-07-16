@@ -23,9 +23,9 @@ void setupTextBuffers(unsigned int& textVBO, unsigned int& textVAO) {
 
 void renderText(const char* text, float x, float y, float size, unsigned int& textVBO, Shader& textShader,
                 const unsigned int SCR_WIDTH, const unsigned int SCR_HEIGHT, const std::unordered_map<int, Glyph>& glyphs) {
-    textShader.setVec2("screenPosition", glm::vec2(x, y));
-    textShader.setFloat("scale", size);
-    textShader.setVec2("screenSize", glm::vec2(SCR_WIDTH, SCR_HEIGHT));
+    textShader.setVec2Uniform("screenPosition", glm::vec2(x, y));
+    textShader.setFloatUniform("scale", size);
+    textShader.setVec2Uniform("screenSize", glm::vec2(SCR_WIDTH, SCR_HEIGHT));
 
     int length = strlen(text);
     static float vertices[MAX_TEXT_LENGTH * 24];
@@ -101,7 +101,7 @@ std::unordered_map<int, Glyph> parseFont(const char* path) {
                 "char id=%d x=%d y=%d width=%d height=%d xoffset=%d yoffset=%d xadvance=%d",
                 &g.id, &g.x, &g.y, &g.width, &g.height,
                 &g.xoffset, &g.yoffset, &g.xadvance);
-            glyphs.insert({ g.id, g });
+            glyphs.emplace( g.id, g );
         }
     }
     return glyphs;

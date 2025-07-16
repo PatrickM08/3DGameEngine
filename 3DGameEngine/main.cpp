@@ -23,8 +23,24 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 unsigned int loadTexture(const char* path);
 unsigned int loadCubemap(const char **faces, const int numberOfFaces);
+GLFWwindow* initWindow(unsigned int width, unsigned int height, const char* title);
+void configureOpenglState(bool depthTestEnabled, bool blendEnabled, bool faceCullEnabled);
 
+struct Framebuffer {
+    uint32_t buffer;
+    uint32_t textureAttachment;
+    uint32_t renderBufferObject;
+    Shader shader;
+};
 
+struct MeshData {
+    uint32_t VBO;
+    uint32_t VAO;
+    uint32_t EBO;
+
+};
+
+Framebuffer createFrameBuffer(const char* vsPath, const char* fsPath, unsigned int width, unsigned int height);
 
 // settings
 unsigned int SCR_WIDTH = 1600;
@@ -52,52 +68,22 @@ bool showFPS = true;
 
 int main()
 {
-    // glfw: initialize and configure
-    // ------------------------------
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-#ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
-
-    // glfw window creation
-    // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
-    if (window == NULL)
-    {
-        std::cout << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return -1;
+    GLFWwindow* window;
+    try {
+        window = initWindow(SCR_WIDTH, SCR_HEIGHT, "Draft");
     }
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);  // Enable VSync (1 = sync every frame)
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetScrollCallback(window, scroll_callback);
-
-    // tell GLFW to capture our mouse
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-    // glad: load all OpenGL function pointers
-    // ---------------------------------------
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-    {
-        std::cout << "Failed to initialize GLAD" << std::endl;
-        return -1;
+    catch (const std::exception& e){
+        std::cerr << "Window init error: " << e.what() << "\n";
+        return 1;
     }
+    // ****** NEEDS IMPROVEMENT ****** 
+    bool depthTestEnabled = true;
+    bool blendEnabled = true;
+    bool faceCullEnabled = true;
+    configureOpenglState(depthTestEnabled,blendEnabled,faceCullEnabled);
+    //*******                   *******
+    
 
-    // configure global opengl state
-    // -----------------------------
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_CULL_FACE);
-
-    // build and compile our shader zprogram
-    // ------------------------------------
     Shader lightingShader("vshader.vs", "fshader.fs");
     Shader lightCubeShader("light_cube.vs", "light_cube.fs");
     Shader textShader("text_vertex_shader.vs", "text_fragment_shader.fs");
@@ -216,14 +202,14 @@ int main()
     // shader configuration
     // --------------------
     lightingShader.use();
-    lightingShader.setInt("material.diffuse", 0);
-    lightingShader.setInt("material.specular", 1);
+    lightingShader.setIntUniform("material.diffuse", 0);
+    lightingShader.setIntUniform("material.specular", 1);
 
     
     std::unordered_map<int, Glyph> glyphs = parseFont("ariallatin.fnt");
     unsigned int bitmapFont = loadBitmapFont("ariallatin_0.png", glyphs);
     textShader.use();
-    textShader.setInt("textTexture", 0);
+    textShader.setIntUniform("textTexture", 0);
     unsigned int textVBO, textVAO;
     glGenVertexArrays(1, &textVAO);
     glGenBuffers(1, &textVBO);
@@ -236,30 +222,7 @@ int main()
     char fpsText[20] = "0";
     
 
-    // Framebuffer
-    unsigned int framebuffer;
-    glGenFramebuffers(1, &framebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    unsigned int textureColorbuffer;
-    glGenTextures(1, &textureColorbuffer);
-    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
-
-    unsigned int rbo;
-    glGenRenderbuffers(1, &rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    Shader framebufferShader("fb_vertex_shader.vs", "fb_fragment_shader.fs");
+    Framebuffer framebuffer = createFrameBuffer("fb_vertex_shader.vs", "fb_fragment_shader.fs", SCR_WIDTH, SCR_HEIGHT);
 
     float quadVertices[] = {
         // positions   // texCoords
@@ -348,7 +311,7 @@ int main()
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
     skyboxShader.use();
-    skyboxShader.setInt("skybox", 0);
+    skyboxShader.setIntUniform("skybox", 0);
 
 
     while (!glfwWindowShouldClose(window))
@@ -371,33 +334,33 @@ int main()
 
         // render
         // ------
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.buffer);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
         glEnable(GL_DEPTH_TEST);
 
         // be sure to activate shader when setting uniforms/drawing objects
         lightingShader.use();
-        lightingShader.setVec3("light.position", lightPos);
-        lightingShader.setVec3("viewPos", camera.Position);
+        lightingShader.setVec3Uniform("light.position", lightPos);
+        lightingShader.setVec3Uniform("viewPos", camera.Position);
 
         // light properties
-        lightingShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
-        lightingShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f);
-        lightingShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+        lightingShader.setVec3Uniform("light.ambient", 0.2f, 0.2f, 0.2f);
+        lightingShader.setVec3Uniform("light.diffuse", 0.5f, 0.5f, 0.5f);
+        lightingShader.setVec3Uniform("light.specular", 1.0f, 1.0f, 1.0f);
 
         // material properties
-        lightingShader.setFloat("material.shininess", 64.0f);
+        lightingShader.setFloatUniform("material.shininess", 64.0f);
 
         // view/projection transformations
         projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
         view = camera.GetViewMatrix();
-        lightingShader.setMat4("projection", projection);
-        lightingShader.setMat4("view", view);
+        lightingShader.setMat4Uniform("projection", projection);
+        lightingShader.setMat4Uniform("view", view);
 
         // world transformation
         glm::mat4 model = glm::mat4(1.0f);
-        lightingShader.setMat4("model", model);
+        lightingShader.setMat4Uniform("model", model);
 
         // bind diffuse map
         glActiveTexture(GL_TEXTURE0);
@@ -412,12 +375,12 @@ int main()
 
         // also draw the lamp object
         lightCubeShader.use();
-        lightCubeShader.setMat4("projection", projection);
-        lightCubeShader.setMat4("view", view);
+        lightCubeShader.setMat4Uniform("projection", projection);
+        lightCubeShader.setMat4Uniform("view", view);
         model = glm::mat4(1.0f);
         model = glm::translate(model, lightPos);
         model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
-        lightCubeShader.setMat4("model", model);
+        lightCubeShader.setMat4Uniform("model", model);
 
         glBindVertexArray(lightCubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -425,8 +388,8 @@ int main()
         glDepthFunc(GL_LEQUAL);
         skyboxShader.use();
         view = glm::mat4(glm::mat3(camera.GetViewMatrix()));
-        skyboxShader.setMat4("view", view);
-        skyboxShader.setMat4("projection", projection);
+        skyboxShader.setMat4Uniform("view", view);
+        skyboxShader.setMat4Uniform("projection", projection);
         glBindVertexArray(skyboxVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
@@ -450,15 +413,15 @@ int main()
 
         if (postProcessingEnabled) {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            framebufferShader.use();
+            framebuffer.shader.use();
             glBindVertexArray(quadVAO);
             glDisable(GL_DEPTH_TEST);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+            glBindTexture(GL_TEXTURE_2D, framebuffer.textureAttachment);
             glDrawArrays(GL_TRIANGLES, 0, 6);
         }
         else {
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer.buffer);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
             glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, 
                                 GL_COLOR_BUFFER_BIT, GL_NEAREST);
@@ -481,7 +444,7 @@ int main()
     glDeleteBuffers(1, &quadVBO);
     glDeleteBuffers(1, &textVBO);
     glDeleteBuffers(1, &skyboxVBO);
-    glDeleteFramebuffers(1, &framebuffer);
+    glDeleteFramebuffers(1, &framebuffer.buffer);
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
@@ -621,4 +584,81 @@ unsigned int loadCubemap(const char **faces, const int numberOfFaces)
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     return textureID;
+}
+
+Framebuffer createFrameBuffer(const char* vsPath, const char* fsPath, unsigned int width, unsigned int height) {
+    unsigned int framebuffer;
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    unsigned int textureColorbuffer;
+    glGenTextures(1, &textureColorbuffer);
+    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+
+    unsigned int rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    Shader framebufferShader(vsPath, fsPath);
+    return Framebuffer{
+        .buffer = framebuffer,
+        .textureAttachment = textureColorbuffer,
+        .renderBufferObject = rbo,
+        .shader = framebufferShader
+    };
+}
+
+GLFWwindow* initWindow(unsigned int width, unsigned int height, const char* title) {
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
+
+    GLFWwindow* window = glfwCreateWindow(width, height, title, NULL, NULL);
+    if (window == NULL)
+    {
+        std::cout << "Failed to create GLFW window" << std::endl;
+        glfwTerminate();
+        throw std::runtime_error("Failed to create GLFW window");
+    }
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);  // Enable VSync (1 = sync every frame)
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetScrollCallback(window, scroll_callback);
+
+    // tell GLFW to capture our mouse
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        throw std::runtime_error("GLAD init failed");
+    }
+    return window;
+}
+
+void configureOpenglState(const bool depthTestEnabled, const bool blendEnabled, const bool faceCullEnabled) {
+    if (depthTestEnabled)
+        glEnable(GL_DEPTH_TEST);
+    if (blendEnabled)
+        glEnable(GL_BLEND);
+    if (faceCullEnabled) {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_CULL_FACE);
+    };
 }

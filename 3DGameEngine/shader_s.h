@@ -11,139 +11,62 @@
 #include <sstream>
 #include <iostream>
 
-class Shader
-{
-public:
-    unsigned int ID;
-    // constructor generates the shader on the fly
-    // ------------------------------------------------------------------------
+struct Shader {
+    uint32_t id;
+    std::unordered_map<std::string, GLint> uniforms;
+
     Shader(const char* vertexPath, const char* fragmentPath)
     {
-        // 1. retrieve the vertex/fragment source code from filePath
-        std::string vertexCode;
-        std::string fragmentCode;
-        std::ifstream vShaderFile;
-        std::ifstream fShaderFile;
-        // ensure ifstream objects can throw exceptions:
-        vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-        fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+        std::string vShaderString = readShaderFile(vertexPath);
+        std::string fShaderString = readShaderFile(fragmentPath);
+        //  Can't return const char* directly due to dangling pointer
+        const char* vShaderCode = vShaderString.c_str();
+        const char* fShaderCode = fShaderString.c_str();
+
+        unsigned int vertex, fragment;
+
+        vertex = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vertex, 1, &vShaderCode, NULL);
+        glCompileShader(vertex);
+        checkShaderCompileErrors(vertex, "VERTEX");
+
+        fragment = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fragment, 1, &fShaderCode, NULL);
+        glCompileShader(fragment);
+        checkShaderCompileErrors(fragment, "FRAGMENT");
+
+        id = glCreateProgram();
+        glAttachShader(id, vertex);
+        glAttachShader(id, fragment);
+        glLinkProgram(id);
+        checkShaderCompileErrors(id, "PROGRAM");
+
+        glDeleteShader(vertex);
+        glDeleteShader(fragment);
+
+    }
+
+    std::string readShaderFile(const char* path) {
+        std::string shaderCode;
+        std::ifstream shaderFile;
+
+        shaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
         try
         {
-            // open files
-            vShaderFile.open(vertexPath);
-            fShaderFile.open(fragmentPath);
-            std::stringstream vShaderStream, fShaderStream;
-            // read file's buffer contents into streams
-            vShaderStream << vShaderFile.rdbuf();
-            fShaderStream << fShaderFile.rdbuf();
-            // close file handlers
-            vShaderFile.close();
-            fShaderFile.close();
-            // convert stream into string
-            vertexCode = vShaderStream.str();
-            fragmentCode = fShaderStream.str();
+            shaderFile.open(path);
+            std::stringstream shaderStream;
+            shaderStream << shaderFile.rdbuf();
+            shaderFile.close();
+            shaderCode = shaderStream.str();
         }
         catch (std::ifstream::failure& e)
         {
             std::cout << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: " << e.what() << std::endl;
         }
-        const char* vShaderCode = vertexCode.c_str();
-        const char* fShaderCode = fragmentCode.c_str();
-        // 2. compile shaders
-        unsigned int vertex, fragment;
-        // vertex shader
-        vertex = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertex, 1, &vShaderCode, NULL);
-        glCompileShader(vertex);
-        checkCompileErrors(vertex, "VERTEX");
-        // fragment Shader
-        fragment = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragment, 1, &fShaderCode, NULL);
-        glCompileShader(fragment);
-        checkCompileErrors(fragment, "FRAGMENT");
-        // shader Program
-        ID = glCreateProgram();
-        glAttachShader(ID, vertex);
-        glAttachShader(ID, fragment);
-        glLinkProgram(ID);
-        checkCompileErrors(ID, "PROGRAM");
-        // delete the shaders as they're linked into our program now and no longer necessary
-        glDeleteShader(vertex);
-        glDeleteShader(fragment);
-
-    }
-    // activate the shader
-    // ------------------------------------------------------------------------
-    void use() const
-    {
-        glUseProgram(ID);
-    }
-    // utility uniform functions
-    // ------------------------------------------------------------------------
-    void setBool(const char* name, bool value) const
-    {
-        glUniform1i(glGetUniformLocation(ID, name), (int)value);
+        return shaderCode;
     }
 
-    void setInt(const char* name, int value) const
-    {
-        glUniform1i(glGetUniformLocation(ID, name), value);
-    }
-
-    void setFloat(const char* name, float value) const
-    {
-        glUniform1f(glGetUniformLocation(ID, name), value);
-    }
-
-    void setVec2(const char* name, const glm::vec2& value) const
-    {
-        glUniform2fv(glGetUniformLocation(ID, name), 1, &value[0]);
-    }
-
-    void setVec2(const char* name, float x, float y) const
-    {
-        glUniform2f(glGetUniformLocation(ID, name), x, y);
-    }
-
-    void setVec3(const char* name, const glm::vec3& value) const
-    {
-        glUniform3fv(glGetUniformLocation(ID, name), 1, &value[0]);
-    }
-
-    void setVec3(const char* name, float x, float y, float z) const
-    {
-        glUniform3f(glGetUniformLocation(ID, name), x, y, z);
-    }
-
-    void setVec4(const char* name, const glm::vec4& value) const
-    {
-        glUniform4fv(glGetUniformLocation(ID, name), 1, &value[0]);
-    }
-
-    void setVec4(const char* name, float x, float y, float z, float w) const
-    {
-        glUniform4f(glGetUniformLocation(ID, name), x, y, z, w);
-    }
-
-    void setMat2(const char* name, const glm::mat2& mat) const
-    {
-        glUniformMatrix2fv(glGetUniformLocation(ID, name), 1, GL_FALSE, &mat[0][0]);
-    }
-
-    void setMat3(const char* name, const glm::mat3& mat) const
-    {
-        glUniformMatrix3fv(glGetUniformLocation(ID, name), 1, GL_FALSE, &mat[0][0]);
-    }
-
-    void setMat4(const char* name, const glm::mat4& mat) const
-    {
-        glUniformMatrix4fv(glGetUniformLocation(ID, name), 1, GL_FALSE, &mat[0][0]);
-    }
-
-private:
-    // utility function for checking shader compilation/linking errors.
-    // ------------------------------------------------------------------------
-    void checkCompileErrors(GLuint shader, std::string type)
+    void checkShaderCompileErrors(GLuint shader, std::string type)
     {
         GLint success;
         GLchar infoLog[1024];
@@ -166,6 +89,192 @@ private:
             }
         }
     }
+
+    void use() const {
+        glUseProgram(id);
+    }
+
+    void setBoolUniform(const std::string& name, bool value) {
+        auto it = uniforms.find(name);
+        if (it != uniforms.end()) {
+            glUniform1i(it->second, (int)value);
+            return;
+        }
+        GLint location = glGetUniformLocation(id, name.c_str());
+        if (location != -1) {
+            glUniform1i(location, (int)value);
+            uniforms.emplace(name, location);
+            return;
+        }
+        std::cout << "Error finding uniform: " << name << std::endl;
+    }
+
+    void setIntUniform(const std::string& name, int value) {
+        auto it = uniforms.find(name);
+        if (it != uniforms.end()) {
+            glUniform1i(it->second, value);
+            return;
+        }
+        GLint location = glGetUniformLocation(id, name.c_str());
+        if (location != -1) {
+            glUniform1i(location, value);
+            uniforms.emplace(name, location);
+            return;
+        }
+        std::cout << "Error finding uniform: " << name << std::endl;
+    }
+
+    void setFloatUniform(const std::string& name, float value) {
+        auto it = uniforms.find(name);
+        if (it != uniforms.end()) {
+            glUniform1f(it->second, value);
+            return;
+        }
+        GLint location = glGetUniformLocation(id, name.c_str());
+        if (location != -1) {
+            glUniform1f(location, value);
+            uniforms.emplace(name, location);
+            return;
+        }
+        std::cout << "Error finding uniform: " << name << std::endl;
+    }
+
+    void setVec2Uniform(const std::string& name, const glm::vec2& value) {
+        auto it = uniforms.find(name);
+        if (it != uniforms.end()) {
+            glUniform2fv(it->second, 1, &value[0]);
+            return;
+        }
+        GLint location = glGetUniformLocation(id, name.c_str());
+        if (location != -1) {
+            glUniform2fv(location, 1, &value[0]);
+            uniforms.emplace(name, location);
+            return;
+        }
+        std::cout << "Error finding uniform: " << name << std::endl;
+    }
+
+    void setVec2Uniform(const std::string& name, float x, float y) {
+        auto it = uniforms.find(name);
+        if (it != uniforms.end()) {
+            glUniform2f(it->second, x, y);
+            return;
+        }
+        GLint location = glGetUniformLocation(id, name.c_str());
+        if (location != -1) {
+            glUniform2f(location, x, y);
+            uniforms.emplace(name, location);
+            return;
+        }
+        std::cout << "Error finding uniform: " << name << std::endl;
+    }
+
+    void setVec3Uniform(const std::string& name, const glm::vec3& value) {
+        auto it = uniforms.find(name);
+        if (it != uniforms.end()) {
+            glUniform3fv(it->second, 1, &value[0]);
+            return;
+        }
+        GLint location = glGetUniformLocation(id, name.c_str());
+        if (location != -1) {
+            glUniform3fv(location, 1, &value[0]);
+            uniforms.emplace(name, location);
+            return;
+        }
+        std::cout << "Error finding uniform: " << name << std::endl;
+    }
+
+    void setVec3Uniform(const std::string& name, float x, float y, float z) {
+        auto it = uniforms.find(name);
+        if (it != uniforms.end()) {
+            glUniform3f(it->second, x, y, z);
+            return;
+        }
+        GLint location = glGetUniformLocation(id, name.c_str());
+        if (location != -1) {
+            glUniform3f(location, x, y, z);
+            uniforms.emplace(name, location);
+            return;
+        }
+        std::cout << "Error finding uniform: " << name << std::endl;
+    }
+
+    void setVec4Uniform(const std::string& name, const glm::vec4& value) {
+        auto it = uniforms.find(name);
+        if (it != uniforms.end()) {
+            glUniform4fv(it->second, 1, &value[0]);
+            return;
+        }
+        GLint location = glGetUniformLocation(id, name.c_str());
+        if (location != -1) {
+            glUniform4fv(location, 1, &value[0]);
+            uniforms.emplace(name, location);
+            return;
+        }
+        std::cout << "Error finding uniform: " << name << std::endl;
+    }
+
+    void setVec4Uniform(const std::string& name, float x, float y, float z, float w) {
+        auto it = uniforms.find(name);
+        if (it != uniforms.end()) {
+            glUniform4f(it->second, x, y, z, w);
+            return;
+        }
+        GLint location = glGetUniformLocation(id, name.c_str());
+        if (location != -1) {
+            glUniform4f(location, x, y, z, w);
+            uniforms.emplace(name, location);
+            return;
+        }
+        std::cout << "Error finding uniform: " << name << std::endl;
+    }
+
+    void setMat2Uniform(const std::string& name, const glm::mat2& mat) {
+        auto it = uniforms.find(name);
+        if (it != uniforms.end()) {
+            glUniformMatrix2fv(it->second, 1, GL_FALSE, &mat[0][0]);
+            return;
+        }
+        GLint location = glGetUniformLocation(id, name.c_str());
+        if (location != -1) {
+            glUniformMatrix2fv(location, 1, GL_FALSE, &mat[0][0]);
+            uniforms.emplace(name, location);
+            return;
+        }
+        std::cout << "Error finding uniform: " << name << std::endl;
+    }
+
+    void setMat3Uniform(const std::string& name, const glm::mat3& mat) {
+        auto it = uniforms.find(name);
+        if (it != uniforms.end()) {
+            glUniformMatrix3fv(it->second, 1, GL_FALSE, &mat[0][0]);
+            return;
+        }
+        GLint location = glGetUniformLocation(id, name.c_str());
+        if (location != -1) {
+            glUniformMatrix3fv(location, 1, GL_FALSE, &mat[0][0]);
+            uniforms.emplace(name, location);
+            return;
+        }
+        std::cout << "Error finding uniform: " << name << std::endl;
+    }
+
+    void setMat4Uniform(const std::string& name, const glm::mat4& mat) {
+        auto it = uniforms.find(name);
+        if (it != uniforms.end()) {
+            glUniformMatrix4fv(it->second, 1, GL_FALSE, &mat[0][0]);
+            return;
+        }
+        GLint location = glGetUniformLocation(id, name.c_str());
+        if (location != -1) {
+            glUniformMatrix4fv(location, 1, GL_FALSE, &mat[0][0]);
+            uniforms.emplace(name, location);
+            return;
+        }
+        std::cout << "Error finding uniform: " << name << std::endl;
+    }
 };
 #endif
+
+
 

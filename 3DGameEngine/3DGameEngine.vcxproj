@@ -103,7 +103,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Users\Patri\Documents\Libraries\glm-master;C:\Users\Patri\Documents\Libraries\glfw-3.4.bin.WIN64\include;C:\Users\Patri\Documents\Libraries\glad\include</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -120,7 +120,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>C:\Users\Patri\Documents\Libraries\glm-master;C:\Users\Patri\Documents\Libraries\glfw-3.4.bin.WIN64\include;C:\Users\Patri\Documents\Libraries\glad\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
