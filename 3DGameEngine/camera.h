@@ -1,8 +1,4 @@
-
-
-#ifndef CAMERA_H
-#define CAMERA_H
-
+#pragma once
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -33,6 +29,8 @@ public:
     glm::vec3 Up;
     glm::vec3 Right;
     glm::vec3 WorldUp;
+    glm::mat4 projectionMatrix;
+    glm::mat4 viewMatrix;
     // euler Angles
     float Yaw;
     float Pitch;
@@ -60,10 +58,14 @@ public:
         updateCameraVectors();
     }
 
-    // returns the view matrix calculated using Euler Angles and the LookAt Matrix
-    glm::mat4 GetViewMatrix()
-    {
-        return glm::lookAt(Position, Position + Front, Up);
+    void updateViewMatrix() {
+        viewMatrix = glm::lookAt(Position, Position + Front, Up);
+    }
+
+    void updateProjectionMatrix(uint32_t windowWidth, uint32_t windowHeight) {
+        float nearPLane = 0.1f;
+        float farPlane = 100.0f;
+        projectionMatrix = glm::perspective(glm::radians(Zoom), (float)windowWidth / (float)windowHeight, nearPLane, farPlane);
     }
 
     // processes input received from any keyboard-like input system. Accepts input parameter in the form of camera defined ENUM (to abstract it from windowing systems)
@@ -127,5 +129,5 @@ private:
         Up = glm::normalize(glm::cross(Right, Front));
     }
 };
-#endif
+
 

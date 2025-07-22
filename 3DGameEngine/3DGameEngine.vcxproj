@@ -132,17 +132,22 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\Documents\Libraries\glad\src\glad.c" />
+    <ClCompile Include="application.cpp" />
     <ClCompile Include="asset_manager.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stb_setup.cpp" />
     <ClCompile Include="text.cpp" />
+    <ClCompile Include="window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\Downloads\stb_image.h" />
+    <ClInclude Include="application.h" />
     <ClInclude Include="asset_manager.hpp" />
     <ClInclude Include="camera.h" />
+    <ClInclude Include="render_system.h" />
     <ClInclude Include="shader_s.h" />
     <ClInclude Include="text.hpp" />
+    <ClInclude Include="window.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />

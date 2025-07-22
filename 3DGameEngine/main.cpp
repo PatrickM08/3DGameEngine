@@ -1,5 +1,6 @@
 
 
+/*
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "stb_image.h"
@@ -105,7 +106,7 @@ struct RenderState {
     int counter = 1;
 };
 
-int main()
+int main2()
 {
     RenderState state;
     GLFWwindow* window;
@@ -489,3 +490,4 @@ void configureOpenglState(const bool depthTestEnabled, const bool blendEnabled, 
         glEnable(GL_CULL_FACE);
     };
 }
+*/
