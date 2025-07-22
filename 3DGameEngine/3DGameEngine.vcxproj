@@ -155,8 +155,8 @@
     <None Include="fb_fragment_shader.fs" />
     <None Include="fb_vertex_shader.vs" />
     <None Include="fshader.fs" />
-    <None Include="light_cube.fs" />
-    <None Include="light_cube.vs" />
+    <None Include="cube.fs" />
+    <None Include="cube.vs" />
     <None Include="skybox_fshader.fs" />
     <None Include="skybox_vshader.vs" />
     <None Include="text_fragment_shader.fs" />

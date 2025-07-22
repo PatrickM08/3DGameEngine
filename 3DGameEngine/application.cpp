@@ -14,10 +14,18 @@ Application::Application()
 {
     Entity skyboxEntity{ .id = 0 };
     scene.entitiesInScene.push_back(skyboxEntity);
+    scene.skyboxesInScene[skyboxEntity.id].isSkybox = true;
     Materials materials;
     Meshes meshes;
     scene.materialsInScene[skyboxEntity.id] = (materials.materials["skybox"]);
     scene.meshesInScene[skyboxEntity.id] = (meshes.meshes["skybox"]);
+
+    Entity cubeEntity{ .id = 1 };
+    scene.entitiesInScene.push_back(cubeEntity);
+    scene.materialsInScene[cubeEntity.id] = (materials.materials["cube"]);
+    scene.meshesInScene[cubeEntity.id] = (meshes.meshes["cube"]);
+    glm::mat4 model = glm::mat4(1.0f);
+    scene.updateTransforms(cubeEntity.id, model);
 }
 
 int Application::run() {
