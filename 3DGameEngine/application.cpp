@@ -26,6 +26,7 @@ Application::Application()
     scene.meshesInScene[cubeEntity.id] = (meshes.meshes["cube"]);
     glm::mat4 model = glm::mat4(1.0f);
     scene.updateTransforms(cubeEntity.id, model);
+    materials.materials["cube"].shader->setMat3Uniform("normalMatrix", glm::mat3(glm::transpose(glm::inverse(model))));
 }
 
 int Application::run() {

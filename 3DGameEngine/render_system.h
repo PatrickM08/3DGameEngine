@@ -31,14 +31,15 @@ struct MeshComponent {
     GLuint vao;
     GLenum drawMode;
     GLsizei vertexCount;
+    GLsizei instanceCount;
 
     MeshComponent()
-        : vao(0), drawMode(0), vertexCount(0)
+        : vao(0), drawMode(0), vertexCount(0), instanceCount(0)
     {
     }
 
-    MeshComponent(GLuint vao, GLenum drawMode, GLsizei vertexCount) 
-        : vao(vao), drawMode(drawMode), vertexCount(vertexCount)
+    MeshComponent(GLuint vao, GLenum drawMode, GLsizei vertexCount, GLsizei instanceCount) 
+        : vao(vao), drawMode(drawMode), vertexCount(vertexCount), instanceCount(instanceCount)
     {
     }
 };
@@ -79,10 +80,20 @@ struct Materials {
         materials.emplace("skybox", MaterialComponent(skyboxShader, { skyboxTextureId }, { GL_TEXTURE_CUBE_MAP }));
 
         std::shared_ptr<Shader> cubeShader = std::make_shared<Shader>("cube.vs", "cube.fs");
-        GLuint containerTextureId = loadTexture("container2.png");
+        GLuint containerDiffuseId = loadTexture("container2.png");
+        GLuint containerSpecularId = loadTexture("container2_specular.png");
         cubeShader->use();
-        cubeShader->setIntUniform("aTexture", 0);
-        materials.emplace("cube", MaterialComponent(cubeShader, { containerTextureId }, { GL_TEXTURE_2D }));
+        cubeShader->setIntUniform("material.diffuse", 0);
+        cubeShader->setIntUniform("material.specular", 1);
+        cubeShader->setFloatUniform("material.shininess", 32.0f);
+
+        // This shouldn't be here.
+        glm::vec3 lightPos = glm::vec3(0.0f, 1.0f, 0.0f);
+        cubeShader->setVec3Uniform("light.position", lightPos);
+        cubeShader->setVec3Uniform("light.ambient", 0.2f, 0.2f, 0.2f);
+        cubeShader->setVec3Uniform("light.diffuse", 0.5f, 0.5f, 0.5f);
+        cubeShader->setVec3Uniform("light.specular", 1.0f, 1.0f, 1.0f);
+        materials.emplace("cube", MaterialComponent(cubeShader, { containerDiffuseId, containerSpecularId }, { GL_TEXTURE_2D }));
     }
 };
 
@@ -142,7 +153,7 @@ struct Meshes {
         glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
-        MeshComponent skyboxMesh(skyboxVAO, GL_TRIANGLES, 36);
+        MeshComponent skyboxMesh(skyboxVAO, GL_TRIANGLES, 36, 1);
         meshes.emplace("skybox", skyboxMesh);
 
 
@@ -202,7 +213,7 @@ struct Meshes {
              -0.5f,  0.5f,  0.5f,  0, 1, 0,  0.0f, 0.0f
         };
 
-        GLuint cubeVAO, cubeVBO;
+        GLuint cubeVAO, cubeVBO, cubeInstanceVBO;
         glGenVertexArrays(1, &cubeVAO);
         glGenBuffers(1, &cubeVBO);
 
@@ -212,9 +223,29 @@ struct Meshes {
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
-        MeshComponent cubeMesh(cubeVAO, GL_TRIANGLES, 36);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+        const int NUM_BOXES = 1024;
+        int index = 0;
+        glm::vec3 translations[NUM_BOXES];
+        for (int i = 0; i < 32; i++) {
+            for (int j = 0; j < 32; j++) {
+                translations[index].x = i * 2;
+                translations[index].y = 0;
+                translations[index].z = -j * 2;
+                index++;
+            }
+        }
+
+        glGenBuffers(1, &cubeInstanceVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, cubeInstanceVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * NUM_BOXES, translations, GL_STATIC_DRAW);
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+        glEnableVertexAttribArray(3);
+        glVertexAttribDivisor(3, 1);
+        MeshComponent cubeMesh(cubeVAO, GL_TRIANGLES, 36, NUM_BOXES);
         meshes.emplace("cube", cubeMesh);
     }
 };
@@ -250,24 +281,32 @@ public:
     void renderScene(Camera& camera, ECS& scene) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         for (Entity e : scene.entitiesInScene) {
-            scene.materialsInScene[e.id].shader->use();
-            scene.materialsInScene[e.id].shader->setMat4Uniform("projection", camera.projectionMatrix);
+            MaterialComponent& material = scene.materialsInScene[e.id];
+            MeshComponent& mesh = scene.meshesInScene[e.id];
+            TransformComponent& transform = scene.transformsInScene[e.id];
+            material.shader->use();
+            material.shader->setMat4Uniform("projection", camera.projectionMatrix);
             if (scene.skyboxesInScene[e.id].isSkybox) {
                 glm::mat4 skyboxViewMatrix(glm::mat3(camera.viewMatrix));
-                scene.materialsInScene[e.id].shader->setMat4Uniform("view", skyboxViewMatrix);
+                material.shader->setMat4Uniform("view", skyboxViewMatrix);
                 glDepthFunc(GL_LEQUAL);
             }
             else {
-                scene.materialsInScene[e.id].shader->setMat4Uniform("view", camera.viewMatrix);
-                scene.materialsInScene[e.id].shader->setMat4Uniform("model", scene.transformsInScene[e.id].transform);
+                material.shader->setMat4Uniform("view", camera.viewMatrix);
+                material.shader->setMat4Uniform("model", transform.transform);
+                material.shader->setVec3Uniform("cameraPos", camera.Position);
             }
-            glBindVertexArray(scene.meshesInScene[e.id].vao);
-            auto& material = scene.materialsInScene[e.id];
+            glBindVertexArray(mesh.vao);
             for (int i = 0; i < material.textureIds.size(); i++) {
                 glActiveTexture(GL_TEXTURE0 + i);
                 glBindTexture(material.textureBindTargets[i], material.textureIds[i]);
             }
-            glDrawArrays(scene.meshesInScene[e.id].drawMode, 0, scene.meshesInScene[e.id].vertexCount);
+            if (mesh.instanceCount == 1) {
+                glDrawArrays(mesh.drawMode, 0, mesh.vertexCount);
+            }
+            else {
+                glDrawArraysInstanced(mesh.drawMode, 0, mesh.vertexCount, mesh.instanceCount);
+            }
             glDepthFunc(GL_LESS);
         }
     }
