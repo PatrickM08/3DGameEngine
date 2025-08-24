@@ -1,183 +1,98 @@
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include "asset_manager.hpp"
+#include "asset_manager.h"
+#include <fstream>
+#include <string>
+#include <sstream>
+#include <algorithm>
+#include <vector>
 
-void createQuadBuffers(MeshBuffers& quad) {
-    float quadVertices[] = {
-        // positions   // texCoords
-        -1.0f,  1.0f,  0.0f, 1.0f,
-        -1.0f, -1.0f,  0.0f, 0.0f,
-         1.0f, -1.0f,  1.0f, 0.0f,
+std::vector<float> parseOBJFile(const char* path, uint32_t& vertexCount) {
+    bool onlyPos = true;
+    std::vector<float> meshData;
+    std::vector<float> positions;
+    std::vector<float> texCoords;
+    std::vector<float> normals;
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        throw std::runtime_error("Error opening obj file.");
+    }
+    std::string line;
+    while (std::getline(file, line)) {
+        std::istringstream stream(line);
+        std::string prefix;
+        stream >> prefix;
 
-        -1.0f,  1.0f,  0.0f, 1.0f,
-         1.0f, -1.0f,  1.0f, 0.0f,
-         1.0f,  1.0f,  1.0f, 1.0f
-    };
+        if (prefix == "v") {
+            float x, y, z;
+            stream >> x >> y >> z;
+            positions.push_back(x);
+            positions.push_back(y);
+            positions.push_back(z);
+        }
+        else if (prefix == "vt") {
+            onlyPos = false;
+            float x, y;
+            stream >> x >> y;
+            texCoords.push_back(x);
+            texCoords.push_back(y);
+        }
+        else if (prefix == "vn") {
+            onlyPos = false;
+            float x, y, z;
+            stream >> x >> y >> z;
+            normals.push_back(x);
+            normals.push_back(y);
+            normals.push_back(z);
+        }
+        else if (prefix == "f") {
+            std::string vertex;
+            while (stream >> vertex) {
+                vertexCount++;
+                std::replace(vertex.begin(), vertex.end(), '/', ' ');
+                std::istringstream vstream(vertex);
+                int v;
+                vstream >> v;
+                v = (v - 1) * 3;
+                meshData.push_back(positions[v]);
+                meshData.push_back(positions[v + 1]);
+                meshData.push_back(positions[v + 2]);
+                if (!onlyPos) {
+                    int t, n;
+                    vstream >> t >> n;
 
-    glGenVertexArrays(1, &quad.VAO);
-    glGenBuffers(1, &quad.VBO);
+                    t = (t - 1) * 2;
+                    n = (n - 1) * 3;
 
-    glBindVertexArray(quad.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, quad.VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-}
-
-void createCubeBuffers(MeshBuffers& cube) {
-    float vertices[] = {
-        // Back face (-Z)
-        -0.5f, -0.5f, -0.5f,  0, 0, -1,  0.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  0, 0, -1,  1.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  0, 0, -1,  1.0f, 0.0f,
-
-         0.5f,  0.5f, -0.5f,  0, 0, -1,  1.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0, 0, -1,  0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  0, 0, -1,  0.0f, 1.0f,
-
-        // Front face (+Z)
-        -0.5f, -0.5f,  0.5f,  0, 0, 1,  0.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  0, 0, 1,  1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  0, 0, 1,  1.0f, 1.0f,
-
-         0.5f,  0.5f,  0.5f,  0, 0, 1,  1.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f,  0, 0, 1,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0, 0, 1,  0.0f, 0.0f,
-
-        // Left face (-X)
-        -0.5f,  0.5f,  0.5f,  -1, 0, 0,  1.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f, -1, 0, 0,  1.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f, -1, 0, 0,  0.0f, 1.0f,
-
-        -0.5f, -0.5f, -0.5f, -1, 0, 0,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f, -1, 0, 0,  0.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f, -1, 0, 0,  1.0f, 0.0f,
-
-        // Right face (+X)
-         0.5f,  0.5f,  0.5f,  1, 0, 0,  1.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  1, 0, 0,  0.0f, 1.0f,
-         0.5f,  0.5f, -0.5f,  1, 0, 0,  1.0f, 1.0f,
-
-         0.5f, -0.5f, -0.5f,  1, 0, 0,  0.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  1, 0, 0,  1.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1, 0, 0,  0.0f, 0.0f,
-
-         // Bottom face (-Y)
-         -0.5f, -0.5f, -0.5f,  0, -1, 0,  0.0f, 1.0f,
-          0.5f, -0.5f, -0.5f,  0, -1, 0,  1.0f, 1.0f,
-          0.5f, -0.5f,  0.5f,  0, -1, 0,  1.0f, 0.0f,
-
-          0.5f, -0.5f,  0.5f,  0, -1, 0,  1.0f, 0.0f,
-         -0.5f, -0.5f,  0.5f,  0, -1, 0,  0.0f, 0.0f,
-         -0.5f, -0.5f, -0.5f,  0, -1, 0,  0.0f, 1.0f,
-
-         // Top face (+Y)
-         -0.5f,  0.5f, -0.5f,  0, 1, 0,  0.0f, 1.0f,
-          0.5f,  0.5f,  0.5f,  0, 1, 0,  1.0f, 0.0f,
-          0.5f,  0.5f, -0.5f,  0, 1, 0,  1.0f, 1.0f,
-
-          0.5f,  0.5f,  0.5f,  0, 1, 0,  1.0f, 0.0f,
-         -0.5f,  0.5f, -0.5f,  0, 1, 0,  0.0f, 1.0f,
-         -0.5f,  0.5f,  0.5f,  0, 1, 0,  0.0f, 0.0f
-    };
-
-    glGenVertexArrays(1, &cube.VAO);
-    glGenBuffers(1, &cube.VBO);
-
-    glBindVertexArray(cube.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, cube.VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-
-    const int NUM_BOXES = 1024;
-    int index = 0;
-    glm::vec3 translations[NUM_BOXES];
-    for (int i = 0; i < 32; i++) {
-        for (int j = 0; j < 32; j++) {
-            translations[index].x = i * 2;
-            translations[index].y = 0;
-            translations[index].z = -j * 2;
-            index++;
+                    meshData.push_back(texCoords[t]);
+                    meshData.push_back(texCoords[t + 1]);
+                    meshData.push_back(normals[n]);
+                    meshData.push_back(normals[n + 1]);
+                    meshData.push_back(normals[n + 2]);
+                }
+            }
         }
     }
-
-    glGenBuffers(1, &cube.instanceVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, cube.instanceVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * NUM_BOXES, translations, GL_STATIC_DRAW);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glEnableVertexAttribArray(3);
-    glVertexAttribDivisor(3, 1);
+    return meshData;
 }
 
-void createLightBuffers(MeshBuffers& light) {
-    glGenVertexArrays(1, &light.VAO);
-    glBindVertexArray(light.VAO);
+AssetManager::AssetManager() : meshes(loadMeshes("meshes.txt")) {}
 
-    glBindBuffer(GL_ARRAY_BUFFER, light.VBO);
-    
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-}
+std::vector<MeshData> AssetManager::loadMeshes(const char* path) {
+	std::vector<MeshData> meshes;
+	std::ifstream file(path);
+	if (!file.is_open()) {
+		throw std::runtime_error("Error opening obj file.");
+	}
+	std::string line;
+	while (std::getline(file, line)) {
+		std::istringstream stream(line);
+        uint32_t meshHandle;
+        std::string objPath;
+        stream >> meshHandle >> objPath;
+        MeshData mesh;
+        mesh.handle = meshHandle;
+        uint32_t vertexCount = 0;
+        std::vector<float> vertices = parseOBJFile(path, vertexCount);
+        mesh.vertexCount = vertexCount;
 
-void createSkyboxbuffers(MeshBuffers& skybox) {
-    float skyboxVertices[] = {
-        // positions          
-        -1.0f,  1.0f, -1.0f,
-        -1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-
-        -1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
-
-         1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-
-        -1.0f, -1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
-
-        -1.0f,  1.0f, -1.0f,
-         1.0f,  1.0f, -1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f, -1.0f,
-
-        -1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-         1.0f, -1.0f,  1.0f
-    };
-    glGenVertexArrays(1, &skybox.VAO);
-    glGenBuffers(1, &skybox.VBO);
-    glBindVertexArray(skybox.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, skybox.VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-}
+	}
+} 

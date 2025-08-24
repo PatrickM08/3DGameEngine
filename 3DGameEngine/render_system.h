@@ -4,16 +4,96 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include <iostream>
+#include <sstream>
+#include <algorithm>
 #include "shader_s.h"
 #include "stb_image.h"
 #include <memory>
 #include <unordered_map>
 #include "camera.h"
+#include "window.h"
+
+std::vector<float> parseOBJFile(const char* path) {
+    bool onlyPos = true;
+    std::vector<float> meshData;
+    std::vector<float> positions;
+    std::vector<float> texCoords;
+    std::vector<float> normals;
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        throw std::runtime_error("Error opening obj file.");
+    }
+    std::string line;
+    while (std::getline(file, line)) {
+        std::istringstream stream(line);
+        std::string prefix;
+        stream >> prefix;
+
+        if (prefix == "v") {
+            float x, y, z;
+            stream >> x >> y >> z;
+            positions.push_back(x);
+            positions.push_back(y);
+            positions.push_back(z);
+        }
+        else if (prefix == "vt") {
+            onlyPos = false;
+            float x, y;
+            stream >> x >> y;
+            texCoords.push_back(x);
+            texCoords.push_back(y);
+        }
+        else if (prefix == "vn") {
+            onlyPos = false;
+            float x, y, z;
+            stream >> x >> y >> z;
+            normals.push_back(x);
+            normals.push_back(y);
+            normals.push_back(z);
+        }
+        else if (prefix == "f") {
+            std::string vertex;
+            while (stream >> vertex) {
+                std::replace(vertex.begin(), vertex.end(), '/', ' ');
+                std::istringstream vstream(vertex);
+                int v;
+                vstream >> v;
+                v = (v - 1) * 3;
+                meshData.push_back(positions[v]);
+                meshData.push_back(positions[v + 1]);
+                meshData.push_back(positions[v + 2]);
+                if (!onlyPos) {
+                    int t, n;
+                    vstream >> t >> n;
+
+                    t = (t - 1) * 2;
+                    n = (n - 1) * 3;
+
+                    meshData.push_back(texCoords[t]);
+                    meshData.push_back(texCoords[t + 1]);
+                    meshData.push_back(normals[n]);
+                    meshData.push_back(normals[n + 1]);
+                    meshData.push_back(normals[n + 2]);
+                }
+            }
+        }
+    }
+    return meshData;
+}
 
 GLuint loadCubemap(const char** faces, const int numberOfFaces);
 unsigned int loadTexture(char const* path);
 
 constexpr int MAX_ENTITIES = 100;
+
+struct Framebuffer {
+    GLuint buffer;
+    GLuint textureAttachment;
+    GLuint renderBufferObject;
+    uint32_t width, height;
+};
+
+Framebuffer createFrameBuffer(uint32_t width, uint32_t height);
 
 struct Entity {
     uint32_t id;
@@ -88,12 +168,22 @@ struct Materials {
         cubeShader->setFloatUniform("material.shininess", 32.0f);
 
         // This shouldn't be here.
-        glm::vec3 lightPos = glm::vec3(0.0f, 1.0f, 0.0f);
-        cubeShader->setVec3Uniform("light.position", lightPos);
-        cubeShader->setVec3Uniform("light.ambient", 0.2f, 0.2f, 0.2f);
-        cubeShader->setVec3Uniform("light.diffuse", 0.5f, 0.5f, 0.5f);
-        cubeShader->setVec3Uniform("light.specular", 1.0f, 1.0f, 1.0f);
+        cubeShader->setIntUniform("numberOfPointLights", 2);
+        glm::vec3 lightPositions[2] = { glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(20.0f, 1.0f, -20.0f) };
+        for (int i = 0; i < 2; i++) {
+            std::string index = std::to_string(i);
+            cubeShader->setVec3Uniform("pointLights[" + index + "].position", lightPositions[i]);
+            cubeShader->setVec3Uniform("pointLights[" + index + "].ambient", 0.2f, 0.2f, 0.2f);
+            cubeShader->setVec3Uniform("pointLights[" + index + "].diffuse", 0.5f, 0.5f, 0.5f);
+            cubeShader->setVec3Uniform("pointLights[" + index + "].specular", 1.0f, 1.0f, 1.0f);
+            cubeShader->setFloatUniform("pointLights[" + index + "].constant", 1.0f);
+            cubeShader->setFloatUniform("pointLights[" + index + "].linear", 0.09f);
+            cubeShader->setFloatUniform("pointLights[" + index + "].quadratic", 0.032f);
+        }
         materials.emplace("cube", MaterialComponent(cubeShader, { containerDiffuseId, containerSpecularId }, { GL_TEXTURE_2D }));
+
+        std::shared_ptr<Shader> simpleShader = std::make_shared<Shader>("vshader.vs", "fshader.fs");
+        materials.emplace("simple", MaterialComponent(simpleShader, {}, {}));
     }
 };
 
@@ -101,117 +191,20 @@ struct Meshes {
     std::unordered_map<std::string, MeshComponent> meshes;
 
     Meshes() {
-        float skyboxVertices[] = {
-            // positions          
-            -1.0f,  1.0f, -1.0f,
-            -1.0f, -1.0f, -1.0f,
-             1.0f, -1.0f, -1.0f,
-             1.0f, -1.0f, -1.0f,
-             1.0f,  1.0f, -1.0f,
-            -1.0f,  1.0f, -1.0f,
-
-            -1.0f, -1.0f,  1.0f,
-            -1.0f, -1.0f, -1.0f,
-            -1.0f,  1.0f, -1.0f,
-            -1.0f,  1.0f, -1.0f,
-            -1.0f,  1.0f,  1.0f,
-            -1.0f, -1.0f,  1.0f,
-
-             1.0f, -1.0f, -1.0f,
-             1.0f, -1.0f,  1.0f,
-             1.0f,  1.0f,  1.0f,
-             1.0f,  1.0f,  1.0f,
-             1.0f,  1.0f, -1.0f,
-             1.0f, -1.0f, -1.0f,
-
-            -1.0f, -1.0f,  1.0f,
-            -1.0f,  1.0f,  1.0f,
-             1.0f,  1.0f,  1.0f,
-             1.0f,  1.0f,  1.0f,
-             1.0f, -1.0f,  1.0f,
-            -1.0f, -1.0f,  1.0f,
-
-            -1.0f,  1.0f, -1.0f,
-             1.0f,  1.0f, -1.0f,
-             1.0f,  1.0f,  1.0f,
-             1.0f,  1.0f,  1.0f,
-            -1.0f,  1.0f,  1.0f,
-            -1.0f,  1.0f, -1.0f,
-
-            -1.0f, -1.0f, -1.0f,
-            -1.0f, -1.0f,  1.0f,
-             1.0f, -1.0f, -1.0f,
-             1.0f, -1.0f, -1.0f,
-            -1.0f, -1.0f,  1.0f,
-             1.0f, -1.0f,  1.0f
-        };
+        std::vector<float> skyboxVertices = parseOBJFile("skybox.obj");
         GLuint skyboxVAO, skyboxVBO;
         glGenVertexArrays(1, &skyboxVAO);
         glGenBuffers(1, &skyboxVBO);
         glBindVertexArray(skyboxVAO);
         glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, skyboxVertices.size() * sizeof(float), skyboxVertices.data(), GL_STATIC_DRAW);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
         MeshComponent skyboxMesh(skyboxVAO, GL_TRIANGLES, 36, 1);
         meshes.emplace("skybox", skyboxMesh);
 
 
-        float vertices[] = {
-            // Back face (-Z)
-            -0.5f, -0.5f, -0.5f,  0, 0, -1,  0.0f, 0.0f,
-             0.5f,  0.5f, -0.5f,  0, 0, -1,  1.0f, 1.0f,
-             0.5f, -0.5f, -0.5f,  0, 0, -1,  1.0f, 0.0f,
-
-             0.5f,  0.5f, -0.5f,  0, 0, -1,  1.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f,  0, 0, -1,  0.0f, 0.0f,
-            -0.5f,  0.5f, -0.5f,  0, 0, -1,  0.0f, 1.0f,
-
-            // Front face (+Z)
-            -0.5f, -0.5f,  0.5f,  0, 0, 1,  0.0f, 0.0f,
-             0.5f, -0.5f,  0.5f,  0, 0, 1,  1.0f, 0.0f,
-             0.5f,  0.5f,  0.5f,  0, 0, 1,  1.0f, 1.0f,
-
-             0.5f,  0.5f,  0.5f,  0, 0, 1,  1.0f, 1.0f,
-            -0.5f,  0.5f,  0.5f,  0, 0, 1,  0.0f, 1.0f,
-            -0.5f, -0.5f,  0.5f,  0, 0, 1,  0.0f, 0.0f,
-
-            // Left face (-X)
-            -0.5f,  0.5f,  0.5f,  -1, 0, 0,  1.0f, 0.0f,
-            -0.5f,  0.5f, -0.5f, -1, 0, 0,  1.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f, -1, 0, 0,  0.0f, 1.0f,
-
-            -0.5f, -0.5f, -0.5f, -1, 0, 0,  0.0f, 1.0f,
-            -0.5f, -0.5f,  0.5f, -1, 0, 0,  0.0f, 0.0f,
-            -0.5f,  0.5f,  0.5f, -1, 0, 0,  1.0f, 0.0f,
-
-            // Right face (+X)
-             0.5f,  0.5f,  0.5f,  1, 0, 0,  1.0f, 0.0f,
-             0.5f, -0.5f, -0.5f,  1, 0, 0,  0.0f, 1.0f,
-             0.5f,  0.5f, -0.5f,  1, 0, 0,  1.0f, 1.0f,
-
-             0.5f, -0.5f, -0.5f,  1, 0, 0,  0.0f, 1.0f,
-             0.5f,  0.5f,  0.5f,  1, 0, 0,  1.0f, 0.0f,
-             0.5f, -0.5f,  0.5f,  1, 0, 0,  0.0f, 0.0f,
-
-             // Bottom face (-Y)
-             -0.5f, -0.5f, -0.5f,  0, -1, 0,  0.0f, 1.0f,
-              0.5f, -0.5f, -0.5f,  0, -1, 0,  1.0f, 1.0f,
-              0.5f, -0.5f,  0.5f,  0, -1, 0,  1.0f, 0.0f,
-
-              0.5f, -0.5f,  0.5f,  0, -1, 0,  1.0f, 0.0f,
-             -0.5f, -0.5f,  0.5f,  0, -1, 0,  0.0f, 0.0f,
-             -0.5f, -0.5f, -0.5f,  0, -1, 0,  0.0f, 1.0f,
-
-             // Top face (+Y)
-             -0.5f,  0.5f, -0.5f,  0, 1, 0,  0.0f, 1.0f,
-              0.5f,  0.5f,  0.5f,  0, 1, 0,  1.0f, 0.0f,
-              0.5f,  0.5f, -0.5f,  0, 1, 0,  1.0f, 1.0f,
-
-              0.5f,  0.5f,  0.5f,  0, 1, 0,  1.0f, 0.0f,
-             -0.5f,  0.5f, -0.5f,  0, 1, 0,  0.0f, 1.0f,
-             -0.5f,  0.5f,  0.5f,  0, 1, 0,  0.0f, 0.0f
-        };
+        std::vector<float> vertices = parseOBJFile("cube.obj");
 
         GLuint cubeVAO, cubeVBO, cubeInstanceVBO;
         glGenVertexArrays(1, &cubeVAO);
@@ -219,13 +212,13 @@ struct Meshes {
 
         glBindVertexArray(cubeVAO);
         glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
         glEnableVertexAttribArray(2);
         const int NUM_BOXES = 1024;
         int index = 0;
@@ -247,6 +240,20 @@ struct Meshes {
         glVertexAttribDivisor(3, 1);
         MeshComponent cubeMesh(cubeVAO, GL_TRIANGLES, 36, NUM_BOXES);
         meshes.emplace("cube", cubeMesh);
+
+        std::vector<float> baseplateVertices = parseOBJFile("baseplate.obj");
+
+        GLuint baseplateVAO, baseplateVBO;
+        glGenVertexArrays(1, &baseplateVAO);
+        glGenBuffers(1, &baseplateVBO);
+        glBindVertexArray(baseplateVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, baseplateVBO);
+        glBufferData(GL_ARRAY_BUFFER, baseplateVertices.size() * sizeof(float), baseplateVertices.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+        MeshComponent baseplateMesh(baseplateVAO, GL_TRIANGLES, 6, 1);
+        meshes.emplace("baseplate", baseplateMesh);
+
     }
 };
 
@@ -274,8 +281,9 @@ public:
 
 class RenderSystem {
 public:
-    RenderSystem() {
+    RenderSystem(Window& window) {
         initOpenglState();
+        Framebuffer framebuffer = createFrameBuffer(window.width, window.height);
     }
 
     void renderScene(Camera& camera, ECS& scene) {
@@ -386,4 +394,34 @@ unsigned int loadTexture(char const* path)
     }
 
     return textureID;
+}
+
+Framebuffer createFrameBuffer(uint32_t width, uint32_t height) {
+    unsigned int framebuffer;
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    unsigned int textureColorbuffer;
+    glGenTextures(1, &textureColorbuffer);
+    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+
+    unsigned int rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    return Framebuffer{
+        .buffer = framebuffer,
+        .textureAttachment = textureColorbuffer,
+        .renderBufferObject = rbo
+    };
 }

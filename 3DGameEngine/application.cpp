@@ -5,6 +5,7 @@
 Application::Application()
     : window(1600, 1200, "Draft"),
      windowPtr(window.getGlfwWindowPtr()),
+    renderSystem(window),
     camera(glm::vec3(0.0f, 0.0f, 3.0f)),
     firstMouse(true),
     lastX(0.0f),
@@ -17,16 +18,22 @@ Application::Application()
     scene.skyboxesInScene[skyboxEntity.id].isSkybox = true;
     Materials materials;
     Meshes meshes;
-    scene.materialsInScene[skyboxEntity.id] = (materials.materials["skybox"]);
-    scene.meshesInScene[skyboxEntity.id] = (meshes.meshes["skybox"]);
+    scene.materialsInScene[skyboxEntity.id] = materials.materials["skybox"];
+    scene.meshesInScene[skyboxEntity.id] = meshes.meshes["skybox"];
 
     Entity cubeEntity{ .id = 1 };
     scene.entitiesInScene.push_back(cubeEntity);
-    scene.materialsInScene[cubeEntity.id] = (materials.materials["cube"]);
-    scene.meshesInScene[cubeEntity.id] = (meshes.meshes["cube"]);
+    scene.materialsInScene[cubeEntity.id] = materials.materials["cube"];
+    scene.meshesInScene[cubeEntity.id] = meshes.meshes["cube"];
     glm::mat4 model = glm::mat4(1.0f);
     scene.updateTransforms(cubeEntity.id, model);
     materials.materials["cube"].shader->setMat3Uniform("normalMatrix", glm::mat3(glm::transpose(glm::inverse(model))));
+
+    Entity baseplateEntity{ .id = 2 };
+    scene.entitiesInScene.push_back(baseplateEntity);
+    scene.meshesInScene[baseplateEntity.id] = meshes.meshes["baseplate"];
+    scene.materialsInScene[baseplateEntity.id] = materials.materials["simple"];
+    scene.updateTransforms(baseplateEntity.id, model);
 }
 
 int Application::run() {
