@@ -12,74 +12,7 @@
 #include <unordered_map>
 #include "camera.h"
 #include "window.h"
-
-std::vector<float> parseOBJFile(const char* path) {
-    bool onlyPos = true;
-    std::vector<float> meshData;
-    std::vector<float> positions;
-    std::vector<float> texCoords;
-    std::vector<float> normals;
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        throw std::runtime_error("Error opening obj file.");
-    }
-    std::string line;
-    while (std::getline(file, line)) {
-        std::istringstream stream(line);
-        std::string prefix;
-        stream >> prefix;
-
-        if (prefix == "v") {
-            float x, y, z;
-            stream >> x >> y >> z;
-            positions.push_back(x);
-            positions.push_back(y);
-            positions.push_back(z);
-        }
-        else if (prefix == "vt") {
-            onlyPos = false;
-            float x, y;
-            stream >> x >> y;
-            texCoords.push_back(x);
-            texCoords.push_back(y);
-        }
-        else if (prefix == "vn") {
-            onlyPos = false;
-            float x, y, z;
-            stream >> x >> y >> z;
-            normals.push_back(x);
-            normals.push_back(y);
-            normals.push_back(z);
-        }
-        else if (prefix == "f") {
-            std::string vertex;
-            while (stream >> vertex) {
-                std::replace(vertex.begin(), vertex.end(), '/', ' ');
-                std::istringstream vstream(vertex);
-                int v;
-                vstream >> v;
-                v = (v - 1) * 3;
-                meshData.push_back(positions[v]);
-                meshData.push_back(positions[v + 1]);
-                meshData.push_back(positions[v + 2]);
-                if (!onlyPos) {
-                    int t, n;
-                    vstream >> t >> n;
-
-                    t = (t - 1) * 2;
-                    n = (n - 1) * 3;
-
-                    meshData.push_back(texCoords[t]);
-                    meshData.push_back(texCoords[t + 1]);
-                    meshData.push_back(normals[n]);
-                    meshData.push_back(normals[n + 1]);
-                    meshData.push_back(normals[n + 2]);
-                }
-            }
-        }
-    }
-    return meshData;
-}
+#include "asset_manager.h"
 
 GLuint loadCubemap(const char** faces, const int numberOfFaces);
 unsigned int loadTexture(char const* path);
@@ -109,117 +42,80 @@ struct SkyboxTag {
 
 struct MeshComponent {
     GLuint vao;
-    GLenum drawMode;
     GLsizei vertexCount;
     GLsizei instanceCount;
 
     MeshComponent()
-        : vao(0), drawMode(0), vertexCount(0), instanceCount(0)
+        : vao(0), vertexCount(0), instanceCount(0)
     {
     }
 
-    MeshComponent(GLuint vao, GLenum drawMode, GLsizei vertexCount, GLsizei instanceCount) 
-        : vao(vao), drawMode(drawMode), vertexCount(vertexCount), instanceCount(instanceCount)
+    MeshComponent(GLuint vao, GLsizei vertexCount, GLsizei instanceCount) 
+        : vao(vao), vertexCount(vertexCount), instanceCount(instanceCount)
     {
     }
 };
 
 struct MaterialComponent {
-    std::shared_ptr<Shader> shader;
+    Shader shader;
     std::vector<GLuint> textureIds;
     std::vector<GLenum> textureBindTargets;
 
-    MaterialComponent() 
-        : shader(nullptr)
+    MaterialComponent()
     {
     }
-    MaterialComponent(std::shared_ptr<Shader> shader,
+    MaterialComponent(Shader shader,
         std::initializer_list<GLuint> textureIds,
         std::initializer_list<GLenum> textureBindTargets)
         : shader(shader), textureIds(textureIds), textureBindTargets(textureBindTargets)
     {
-    }
-    void addTextureIdAndBindTarget(GLuint textureId, GLenum textureBindTarget) {
-        textureIds.push_back(textureId);
-        textureBindTargets.push_back(textureBindTarget);
     }
 };
 
 struct Materials {
     std::unordered_map<std::string, MaterialComponent> materials;
 
-    Materials() {
-        std::shared_ptr<Shader> skyboxShader = std::make_shared<Shader>("skybox_vshader.vs", "skybox_fshader.fs");
-        const char* skyboxFaces[] = {
-        "right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"
-        };
-        const int NUM_SKYBOX_FACES = 6;
-        GLuint skyboxTextureId = loadCubemap(skyboxFaces, NUM_SKYBOX_FACES);
-        skyboxShader->use();
-        skyboxShader->setIntUniform("skybox", 0);
-        materials.emplace("skybox", MaterialComponent(skyboxShader, { skyboxTextureId }, { GL_TEXTURE_CUBE_MAP }));
+    Materials(AssetManager& assetManager) {
+        MaterialData skybox = assetManager.getMaterial(2);
+        skybox.shader.use();
+        skybox.shader.setIntUniform("skybox", 0);
+        materials.emplace("skybox", MaterialComponent(skybox.shader, { skybox.textures[0].id }, { skybox.textures[0].target }));
 
-        std::shared_ptr<Shader> cubeShader = std::make_shared<Shader>("cube.vs", "cube.fs");
-        GLuint containerDiffuseId = loadTexture("container2.png");
-        GLuint containerSpecularId = loadTexture("container2_specular.png");
-        cubeShader->use();
-        cubeShader->setIntUniform("material.diffuse", 0);
-        cubeShader->setIntUniform("material.specular", 1);
-        cubeShader->setFloatUniform("material.shininess", 32.0f);
+        MaterialData cube = assetManager.getMaterial(1);
+        cube.shader.use();
+        cube.shader.setIntUniform("material.diffuse", 0);
+        cube.shader.setIntUniform("material.specular", 1);
+        cube.shader.setFloatUniform("material.shininess", 32.0f);
 
         // This shouldn't be here.
-        cubeShader->setIntUniform("numberOfPointLights", 2);
+        cube.shader.setIntUniform("numberOfPointLights", 2);
         glm::vec3 lightPositions[2] = { glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(20.0f, 1.0f, -20.0f) };
         for (int i = 0; i < 2; i++) {
             std::string index = std::to_string(i);
-            cubeShader->setVec3Uniform("pointLights[" + index + "].position", lightPositions[i]);
-            cubeShader->setVec3Uniform("pointLights[" + index + "].ambient", 0.2f, 0.2f, 0.2f);
-            cubeShader->setVec3Uniform("pointLights[" + index + "].diffuse", 0.5f, 0.5f, 0.5f);
-            cubeShader->setVec3Uniform("pointLights[" + index + "].specular", 1.0f, 1.0f, 1.0f);
-            cubeShader->setFloatUniform("pointLights[" + index + "].constant", 1.0f);
-            cubeShader->setFloatUniform("pointLights[" + index + "].linear", 0.09f);
-            cubeShader->setFloatUniform("pointLights[" + index + "].quadratic", 0.032f);
+            cube.shader.setVec3Uniform("pointLights[" + index + "].position", lightPositions[i]);
+            cube.shader.setVec3Uniform("pointLights[" + index + "].ambient", 0.2f, 0.2f, 0.2f);
+            cube.shader.setVec3Uniform("pointLights[" + index + "].diffuse", 0.5f, 0.5f, 0.5f);
+            cube.shader.setVec3Uniform("pointLights[" + index + "].specular", 1.0f, 1.0f, 1.0f);
+            cube.shader.setFloatUniform("pointLights[" + index + "].constant", 1.0f);
+            cube.shader.setFloatUniform("pointLights[" + index + "].linear", 0.09f);
+            cube.shader.setFloatUniform("pointLights[" + index + "].quadratic", 0.032f);
         }
-        materials.emplace("cube", MaterialComponent(cubeShader, { containerDiffuseId, containerSpecularId }, { GL_TEXTURE_2D }));
+        materials.emplace("cube", MaterialComponent(cube.shader, { cube.textures[0].id, cube.textures[1].id}, { cube.textures[0].target, cube.textures[1].target }));
 
-        std::shared_ptr<Shader> simpleShader = std::make_shared<Shader>("vshader.vs", "fshader.fs");
-        materials.emplace("simple", MaterialComponent(simpleShader, {}, {}));
+        MaterialData simpleMaterial = assetManager.getMaterial(0);
+        materials.emplace("simple", MaterialComponent(simpleMaterial.shader, {}, {}));
     }
 };
 
 struct Meshes {
     std::unordered_map<std::string, MeshComponent> meshes;
 
-    Meshes() {
-        std::vector<float> skyboxVertices = parseOBJFile("skybox.obj");
-        GLuint skyboxVAO, skyboxVBO;
-        glGenVertexArrays(1, &skyboxVAO);
-        glGenBuffers(1, &skyboxVBO);
-        glBindVertexArray(skyboxVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-        glBufferData(GL_ARRAY_BUFFER, skyboxVertices.size() * sizeof(float), skyboxVertices.data(), GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-        MeshComponent skyboxMesh(skyboxVAO, GL_TRIANGLES, 36, 1);
+    Meshes(AssetManager& assetManager) {
+        MeshData skybox = assetManager.getMesh(2);
+        MeshComponent skyboxMesh(skybox.vao, skybox.vertexCount, 1);
         meshes.emplace("skybox", skyboxMesh);
 
 
-        std::vector<float> vertices = parseOBJFile("cube.obj");
-
-        GLuint cubeVAO, cubeVBO, cubeInstanceVBO;
-        glGenVertexArrays(1, &cubeVAO);
-        glGenBuffers(1, &cubeVBO);
-
-        glBindVertexArray(cubeVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
-        glEnableVertexAttribArray(2);
         const int NUM_BOXES = 1024;
         int index = 0;
         glm::vec3 translations[NUM_BOXES];
@@ -232,28 +128,21 @@ struct Meshes {
             }
         }
 
+        MeshData cube = assetManager.getMesh(1);
+        glBindVertexArray(cube.vao);
+        GLuint cubeInstanceVBO;
         glGenBuffers(1, &cubeInstanceVBO);
         glBindBuffer(GL_ARRAY_BUFFER, cubeInstanceVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * NUM_BOXES, translations, GL_STATIC_DRAW);
         glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
         glEnableVertexAttribArray(3);
         glVertexAttribDivisor(3, 1);
-        MeshComponent cubeMesh(cubeVAO, GL_TRIANGLES, 36, NUM_BOXES);
+        MeshComponent cubeMesh(cube.vao, cube.vertexCount, NUM_BOXES);
         meshes.emplace("cube", cubeMesh);
 
-        std::vector<float> baseplateVertices = parseOBJFile("baseplate.obj");
-
-        GLuint baseplateVAO, baseplateVBO;
-        glGenVertexArrays(1, &baseplateVAO);
-        glGenBuffers(1, &baseplateVBO);
-        glBindVertexArray(baseplateVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, baseplateVBO);
-        glBufferData(GL_ARRAY_BUFFER, baseplateVertices.size() * sizeof(float), baseplateVertices.data(), GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-        MeshComponent baseplateMesh(baseplateVAO, GL_TRIANGLES, 6, 1);
+        MeshData baseplate = assetManager.getMesh(0);
+        MeshComponent baseplateMesh(baseplate.vao, baseplate.vertexCount, 1);
         meshes.emplace("baseplate", baseplateMesh);
-
     }
 };
 
@@ -292,17 +181,17 @@ public:
             MaterialComponent& material = scene.materialsInScene[e.id];
             MeshComponent& mesh = scene.meshesInScene[e.id];
             TransformComponent& transform = scene.transformsInScene[e.id];
-            material.shader->use();
-            material.shader->setMat4Uniform("projection", camera.projectionMatrix);
+            material.shader.use();
+            material.shader.setMat4Uniform("projection", camera.projectionMatrix);
             if (scene.skyboxesInScene[e.id].isSkybox) {
                 glm::mat4 skyboxViewMatrix(glm::mat3(camera.viewMatrix));
-                material.shader->setMat4Uniform("view", skyboxViewMatrix);
+                material.shader.setMat4Uniform("view", skyboxViewMatrix);
                 glDepthFunc(GL_LEQUAL);
             }
             else {
-                material.shader->setMat4Uniform("view", camera.viewMatrix);
-                material.shader->setMat4Uniform("model", transform.transform);
-                material.shader->setVec3Uniform("cameraPos", camera.Position);
+                material.shader.setMat4Uniform("view", camera.viewMatrix);
+                material.shader.setMat4Uniform("model", transform.transform);
+                material.shader.setVec3Uniform("cameraPos", camera.Position);
             }
             glBindVertexArray(mesh.vao);
             for (int i = 0; i < material.textureIds.size(); i++) {
@@ -310,10 +199,10 @@ public:
                 glBindTexture(material.textureBindTargets[i], material.textureIds[i]);
             }
             if (mesh.instanceCount == 1) {
-                glDrawArrays(mesh.drawMode, 0, mesh.vertexCount);
+                glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
             }
             else {
-                glDrawArraysInstanced(mesh.drawMode, 0, mesh.vertexCount, mesh.instanceCount);
+                glDrawArraysInstanced(GL_TRIANGLES, 0, mesh.vertexCount, mesh.instanceCount);
             }
             glDepthFunc(GL_LESS);
         }

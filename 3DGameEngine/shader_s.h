@@ -15,6 +15,8 @@ struct Shader {
     uint32_t id;
     std::unordered_map<std::string, GLint> uniforms;
 
+    Shader() : id(0){}
+
     Shader(const char* vertexPath, const char* fragmentPath)
     {
         std::string vShaderString = readShaderFile(vertexPath);

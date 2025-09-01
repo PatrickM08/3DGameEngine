@@ -1,4 +1,5 @@
 #include "Application.h"
+#include "asset_manager.h"
 #include <iostream>
 
 
@@ -13,11 +14,12 @@ Application::Application()
     deltaTime(0.0f),
     lastFrame(0.0f)
 {
+    AssetManager assetManager;
+    Materials materials(assetManager);
+    Meshes meshes(assetManager);
     Entity skyboxEntity{ .id = 0 };
     scene.entitiesInScene.push_back(skyboxEntity);
     scene.skyboxesInScene[skyboxEntity.id].isSkybox = true;
-    Materials materials;
-    Meshes meshes;
     scene.materialsInScene[skyboxEntity.id] = materials.materials["skybox"];
     scene.meshesInScene[skyboxEntity.id] = meshes.meshes["skybox"];
 
@@ -27,7 +29,7 @@ Application::Application()
     scene.meshesInScene[cubeEntity.id] = meshes.meshes["cube"];
     glm::mat4 model = glm::mat4(1.0f);
     scene.updateTransforms(cubeEntity.id, model);
-    materials.materials["cube"].shader->setMat3Uniform("normalMatrix", glm::mat3(glm::transpose(glm::inverse(model))));
+    materials.materials["cube"].shader.setMat3Uniform("normalMatrix", glm::mat3(glm::transpose(glm::inverse(model))));
 
     Entity baseplateEntity{ .id = 2 };
     scene.entitiesInScene.push_back(baseplateEntity);

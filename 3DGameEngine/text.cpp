@@ -1,7 +1,7 @@
+/*
 #define _CRT_SECURE_NO_WARNINGS
 #include <unordered_map>
 #include "shader_s.h"
-#include "asset_manager.hpp"
 #include "stb_image.h"
 #include <glad/glad.h>
 #include "text.hpp"
@@ -145,3 +145,4 @@ int loadBitmapFont(const char* path, std::unordered_map<int, Glyph>& glyphs) {
 
     return textureID;
 }
+*/

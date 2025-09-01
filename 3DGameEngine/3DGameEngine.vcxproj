@@ -157,8 +157,8 @@
     <None Include="fshader.fs" />
     <None Include="cube.fs" />
     <None Include="cube.vs" />
-    <None Include="skybox_fshader.fs" />
-    <None Include="skybox_vshader.vs" />
+    <None Include="skybox.fs" />
+    <None Include="skybox.vs" />
     <None Include="text_fragment_shader.fs" />
     <None Include="text_vertex_shader.vs" />
     <None Include="vshader.vs" />
@@ -176,6 +176,7 @@
     <Image Include="skybox\top.jpg" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="entities.txt" />
     <Text Include="materials.txt" />
     <Text Include="meshes.txt" />
   </ItemGroup>

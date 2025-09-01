@@ -1,3 +1,15 @@
-material woodenBox
-vs cube.vs
-fs cube.fs
+# This file contains data used to create a games material objects.
+# Form of data:
+# material(required): handle vs fs
+# lit(optional): ambient diffuse specular shininess
+# textured(optional): list of textures and there bind targets, used to create a texture object
+# cubemap(optional): list of cubemap textures
+
+material 0 vshader.vs fshader.fs
+
+material 1 cube.vs cube.fs
+lit   0.2,0.2,0.2   0.5,0.5,0.5   1.0,1.0,1.0   32.0
+textures   container2.png,GL_TEXTURE_2D   container2_specular.png,GL_TEXTURE_2D
+
+material 2 skybox.vs skybox.fs
+cubemap   right.jpg,left.jpg,top.jpg,bottom.jpg,front.jpg,back.jpg

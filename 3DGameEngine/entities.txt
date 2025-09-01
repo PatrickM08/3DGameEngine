@@ -1,0 +1,4 @@
+entity skyboxSky
+mesh 2
+material 2
+skybox
