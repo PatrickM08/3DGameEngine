@@ -1,0 +1,7 @@
+entity skybox
+pos 0 0 0
+entitiy cube
+pos 0 0 0
+algo grid
+entity baseplate
+pos 0 0 0

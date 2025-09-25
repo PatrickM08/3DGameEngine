@@ -29,11 +29,13 @@ struct MaterialData {
 };
 
 class AssetManager {
-public:
+private:
 	std::vector<MeshData> meshes;
 	std::vector<MaterialData> materials;
 
 private:
+	std::vector<MeshData> loadMeshes(const char* path);
+	std::vector<MaterialData> loadMaterials(const char* path);
 	void initVertexAttributes(bool hasTexCoords, bool hasNormals);
 	std::vector<float> parseOBJFile(const char* path, uint32_t& vertexCount, bool& hasTexCoords, bool& hasNormals);
 	GLuint loadTexture(char const* path);
@@ -41,8 +43,6 @@ private:
 
 public:
 	AssetManager();
-	std::vector<MeshData> loadMeshes(const char* path);
-	std::vector<MaterialData> loadMaterials(const char* path);
 	const MeshData& getMesh(uint32_t handle);
 	const MaterialData& getMaterial(uint32_t handle);
 };

@@ -2,3 +2,13 @@ entity skyboxSky
 mesh 2
 material 2
 skybox
+
+entity cube
+mesh 1
+material 1
+transform 0,0,0 0,0,0 1,1,1
+
+entity baseplate
+mesh 0
+mesh 0
+transform 0,0,0 0,0,0 1,1,1
