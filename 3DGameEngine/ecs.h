@@ -104,3 +104,42 @@ public:
     std::vector<Entity> entitiesInScene;
     std::vector<SkyboxTag> skyboxesInScene;
 };
+
+
+uint32_t nextComponentID = 0;
+
+template<typename T>
+uint32_t getTypeID() {
+    static uint32_t id = nextComponentID++;
+    return id;
+}
+
+struct ComponentBlob {
+    uint32_t typeID;
+    size_t size;
+    std::unique_ptr<uint8_t[]> data;
+
+    template<typename T>
+    ComponentBlob(const T& component) {
+        typeID = getTypeID<T>();
+        size = sizeof(T);
+        data = std::make_unique<uint8_t[]>(sizeof(T));
+        std::memcpy(data.get(), &component, size);
+    }
+
+    template<typename T>
+    T& deserializeBlob(ComponentBlob& blob) {
+        if (blob.size != sizeof(T)) {
+            throw std::runtime_error("Size mismatch!");
+        }
+        return *reinterpret_cast<T*>(blob.data.get());
+    }
+};
+
+
+// We read entities.txt and create the entity templates, when we create the scene we retrieve and deserialize and create
+// actual ecs entities.
+struct EntityTemplate {
+    std::string name;
+    std::vector<ComponentBlob> components;
+};
