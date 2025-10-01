@@ -2,6 +2,8 @@
 #include "Window.h" 
 #include "render_system.h"
 #include "camera.h"
+#include "asset_manager.h"
+#include "ecs.h"
 
 class Application {
 private:
@@ -12,6 +14,7 @@ private:
     bool firstMouse;
     float lastX, lastY;
     float deltaTime, lastFrame;
+    AssetManager assetManager;
     ECS scene;
 
 private:

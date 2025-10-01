@@ -35,8 +35,8 @@ public:
     void renderScene(Camera& camera, ECS& scene) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         for (Entity e : scene.entitiesInScene) {
-            MaterialComponent& material = scene.materialsInScene[e.id];
-            MeshComponent& mesh = scene.meshesInScene[e.id];
+            MaterialData& material = scene.materialsInScene[e.id];
+            MeshData& mesh = scene.meshesInScene[e.id];
             TransformComponent& transform = scene.transformsInScene[e.id];
             material.shader.use();
             material.shader.setMat4Uniform("projection", camera.projectionMatrix);
@@ -51,15 +51,15 @@ public:
                 material.shader.setVec3Uniform("cameraPos", camera.Position);
             }
             glBindVertexArray(mesh.vao);
-            for (int i = 0; i < material.textureIds.size(); i++) {
+            for (int i = 0; i < material.textures.size(); i++) {
                 glActiveTexture(GL_TEXTURE0 + i);
-                glBindTexture(material.textureBindTargets[i], material.textureIds[i]);
+                glBindTexture(material.textures[i].target, material.textures[i].id);
             }
-            if (mesh.instanceCount == 1) {
+            if (mesh.handle != 1) {
                 glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
             }
             else {
-                glDrawArraysInstanced(GL_TRIANGLES, 0, mesh.vertexCount, mesh.instanceCount);
+                glDrawArraysInstanced(GL_TRIANGLES, 0, mesh.vertexCount, 1024);
             }
             glDepthFunc(GL_LESS);
         }

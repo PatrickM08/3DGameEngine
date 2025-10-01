@@ -20,6 +20,7 @@ struct SkyboxTag {
     bool isSkybox;
 };
 
+/*
 struct MeshComponent {
     GLuint vao;
     GLsizei vertexCount;
@@ -51,3 +52,4 @@ struct MaterialComponent {
     {
     }
 };
+*/

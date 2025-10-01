@@ -14,7 +14,6 @@ Application::Application()
     deltaTime(0.0f),
     lastFrame(0.0f)
 {
-    AssetManager assetManager;
     Materials materials(assetManager);
     Meshes meshes(assetManager);
     Entity skyboxEntity{ .id = 0 };

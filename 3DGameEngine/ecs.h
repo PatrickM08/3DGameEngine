@@ -5,17 +5,72 @@
 #include "entity.h"
 #include "asset_manager.h"
 #include <unordered_map>
+#include <memory>
+
+
+struct MeshHandleStorage {
+    uint32_t meshHandle;
+};
+
+struct MaterialHandleStorage {
+    uint32_t materialHandle;
+};
 
 constexpr int MAX_ENTITIES = 100;
 
+uint32_t nextComponentID = 0;
+
+template<typename T>
+uint32_t getTypeID() {
+    static uint32_t id = nextComponentID++;
+    return id;
+}
+
+struct ComponentBlob {
+    uint32_t typeID;
+    size_t size;
+    std::unique_ptr<uint8_t[]> data;
+
+    template<typename T>
+    ComponentBlob(const T& component) {
+        typeID = getTypeID<T>();
+        size = sizeof(T);
+        data = std::make_unique<uint8_t[]>(sizeof(T));
+        std::memcpy(data.get(), &component, size);
+    }
+
+    ComponentBlob(ComponentBlob&& other) noexcept
+        : typeID(other.typeID), size(other.size), data(std::move(other.data)) {
+    }
+
+    // Delete copy operations, this type cannot be copied
+    ComponentBlob(const ComponentBlob&) = delete;
+    ComponentBlob& operator=(const ComponentBlob&) = delete;
+};
+
+template<typename T>
+T& deserializeBlob(ComponentBlob& blob) {
+    if (blob.size != sizeof(T)) {
+        throw std::runtime_error("Size mismatch!");
+    }
+    return *reinterpret_cast<T*>(blob.data.get());
+}
+
+// We read entities.txt and create the entity templates, when we create the scene we retrieve and deserialize and create
+// actual ecs entities.
+struct EntityTemplate {
+    std::string name;
+    std::vector<ComponentBlob> components; // Maybe this can be replaced if we know the maximum number of components
+};
+
 struct Materials {
-    std::unordered_map<std::string, MaterialComponent> materials;
+    std::unordered_map<std::string, MaterialData> materials;
 
     Materials(AssetManager& assetManager) {
         MaterialData skybox = assetManager.getMaterial(2);
         skybox.shader.use();
         skybox.shader.setIntUniform("skybox", 0);
-        materials.emplace("skybox", MaterialComponent(skybox.shader, { skybox.textures[0].id }, { skybox.textures[0].target }));
+        materials.emplace("skybox", skybox);
 
         MaterialData cube = assetManager.getMaterial(1);
         cube.shader.use();
@@ -36,20 +91,19 @@ struct Materials {
             cube.shader.setFloatUniform("pointLights[" + index + "].linear", 0.09f);
             cube.shader.setFloatUniform("pointLights[" + index + "].quadratic", 0.032f);
         }
-        materials.emplace("cube", MaterialComponent(cube.shader, { cube.textures[0].id, cube.textures[1].id }, { cube.textures[0].target, cube.textures[1].target }));
+        materials.emplace("cube", cube);
 
         MaterialData simpleMaterial = assetManager.getMaterial(0);
-        materials.emplace("simple", MaterialComponent(simpleMaterial.shader, {}, {}));
+        materials.emplace("simple", simpleMaterial);
     }
 };
 
 struct Meshes {
-    std::unordered_map<std::string, MeshComponent> meshes;
+    std::unordered_map<std::string, MeshData> meshes;
 
     Meshes(AssetManager& assetManager) {
         MeshData skybox = assetManager.getMesh(2);
-        MeshComponent skyboxMesh(skybox.vao, skybox.vertexCount, 1);
-        meshes.emplace("skybox", skyboxMesh);
+        meshes.emplace("skybox", skybox);
 
 
         const int NUM_BOXES = 1024;
@@ -73,12 +127,10 @@ struct Meshes {
         glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
         glEnableVertexAttribArray(3);
         glVertexAttribDivisor(3, 1);
-        MeshComponent cubeMesh(cube.vao, cube.vertexCount, NUM_BOXES);
-        meshes.emplace("cube", cubeMesh);
+        meshes.emplace("cube", cube);
 
         MeshData baseplate = assetManager.getMesh(0);
-        MeshComponent baseplateMesh(baseplate.vao, baseplate.vertexCount, 1);
-        meshes.emplace("baseplate", baseplateMesh);
+        meshes.emplace("baseplate", baseplate);
     }
 };
 
@@ -91,55 +143,66 @@ public:
         materialsInScene.resize(MAX_ENTITIES);
         entitiesInScene.reserve(MAX_ENTITIES);
         skyboxesInScene.resize(MAX_ENTITIES);
+        entityTemplates.reserve(3);
+        parseEntityTemplateFile();
     }
     void updateTransforms(uint32_t entityId, glm::mat4 transform) {
         transformsInScene[entityId].transform = transform;
     }
 
+    void parseEntityTemplateFile() {
+        std::ifstream file("entities.txt"); // CHANGE THIS SHOULDNT BE HERE
+        if (!file.is_open()) {
+            throw std::runtime_error("Error opening entity template file.");
+        }
+        std::string line;
+        while (std::getline(file, line)) {
+            std::istringstream stream(line);
+            std::string prefix;
+            stream >> prefix;
+            if (prefix == "entity") {
+                entityTemplates.emplace_back();
+                auto& entity = entityTemplates.back();
+                std::string entityName;
+                stream >> entityName;
+                entity.name = entityName;
+            }
+            else if (prefix == "mesh") {
+                auto& entity = entityTemplates.back();
+                uint32_t meshHandle;
+                stream >> meshHandle;
+                MeshHandleStorage handle{ meshHandle };
+                entity.components.emplace_back(handle);
+            }
+            else if (prefix == "material") {
+                auto& entity = entityTemplates.back();
+                uint32_t materialHandle;
+                stream >> materialHandle;
+                MaterialHandleStorage handle{ materialHandle };
+                entity.components.emplace_back(handle);
+            }
+            else if (prefix == "transform") {
+                auto& entity = entityTemplates.back();
+                TransformComponent transform{ glm::mat4(1.0f)}; //This needs to be changed, or not could keep everything here until scene file
+                entity.components.emplace_back(transform);
+            }
+            else if (prefix == "skybox") {
+                auto& entity = entityTemplates.back();
+                SkyboxTag skyboxTag;
+                entity.components.emplace_back(skyboxTag);
+            }
+        }
+    }
 
 public:
     std::vector<TransformComponent> transformsInScene;
-    std::vector<MeshComponent> meshesInScene;
-    std::vector<MaterialComponent> materialsInScene;
+    std::vector<MeshData> meshesInScene;
+    std::vector<MaterialData> materialsInScene;
     std::vector<Entity> entitiesInScene;
     std::vector<SkyboxTag> skyboxesInScene;
+    std::vector<EntityTemplate> entityTemplates;
 };
 
 
-uint32_t nextComponentID = 0;
-
-template<typename T>
-uint32_t getTypeID() {
-    static uint32_t id = nextComponentID++;
-    return id;
-}
-
-struct ComponentBlob {
-    uint32_t typeID;
-    size_t size;
-    std::unique_ptr<uint8_t[]> data;
-
-    template<typename T>
-    ComponentBlob(const T& component) {
-        typeID = getTypeID<T>();
-        size = sizeof(T);
-        data = std::make_unique<uint8_t[]>(sizeof(T));
-        std::memcpy(data.get(), &component, size);
-    }
-
-    template<typename T>
-    T& deserializeBlob(ComponentBlob& blob) {
-        if (blob.size != sizeof(T)) {
-            throw std::runtime_error("Size mismatch!");
-        }
-        return *reinterpret_cast<T*>(blob.data.get());
-    }
-};
 
 
-// We read entities.txt and create the entity templates, when we create the scene we retrieve and deserialize and create
-// actual ecs entities.
-struct EntityTemplate {
-    std::string name;
-    std::vector<ComponentBlob> components;
-};
