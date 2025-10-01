@@ -3,6 +3,7 @@
 #include <iostream>
 
 
+
 Application::Application()
     : window(1600, 1200, "Draft"),
      windowPtr(window.getGlfwWindowPtr()),
@@ -14,6 +15,7 @@ Application::Application()
     deltaTime(0.0f),
     lastFrame(0.0f)
 {
+    /*
     Materials materials(assetManager);
     Meshes meshes(assetManager);
     Entity skyboxEntity{ .id = 0 };
@@ -35,6 +37,32 @@ Application::Application()
     scene.meshesInScene[baseplateEntity.id] = meshes.meshes["baseplate"];
     scene.materialsInScene[baseplateEntity.id] = materials.materials["simple"];
     scene.updateTransforms(baseplateEntity.id, model);
+    */
+
+    uint32_t entityCount = 0;
+    for (EntityTemplate& entityTemplate : scene.entityTemplates) {
+        Entity entity{ entityCount++ };
+        scene.entitiesInScene.push_back(entity);
+
+        for (auto& blob : entityTemplate.components) {
+            if (blob.typeID == getTypeID<MeshHandleStorage>()) {
+                auto& meshHandleStorage = deserializeBlob<MeshHandleStorage>(blob);
+                scene.meshesInScene[entity.id] = assetManager.getMesh(meshHandleStorage.meshHandle);
+            }
+            else if (blob.typeID == getTypeID<MaterialHandleStorage>()) {
+                auto& materialHandleStorage = deserializeBlob<MaterialHandleStorage>(blob);
+                scene.materialsInScene[entity.id] = assetManager.getMaterial(materialHandleStorage.materialHandle);
+            }
+            else if (blob.typeID == getTypeID<TransformComponent>()) {
+                auto& transformComponent = deserializeBlob<TransformComponent>(blob);
+                scene.transformsInScene[entity.id] = transformComponent;
+            }
+            else if (blob.typeID == getTypeID<SkyboxTag>()) {
+                auto& skyboxTag = deserializeBlob<SkyboxTag>(blob);
+                scene.skyboxesInScene[entity.id] = skyboxTag;
+            }
+        }
+    }
 }
 
 int Application::run() {

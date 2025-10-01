@@ -4,6 +4,7 @@
 #include "camera.h"
 #include "asset_manager.h"
 #include "ecs.h"
+#include "entity.h"
 
 class Application {
 private:

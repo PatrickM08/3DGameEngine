@@ -55,7 +55,7 @@ public:
                 glActiveTexture(GL_TEXTURE0 + i);
                 glBindTexture(material.textures[i].target, material.textures[i].id);
             }
-            if (mesh.handle != 1) {
+            if (mesh.handle != 24) { //CHANGEEEEEE
                 glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
             }
             else {

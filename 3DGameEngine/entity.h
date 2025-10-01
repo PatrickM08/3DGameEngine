@@ -17,7 +17,7 @@ struct TransformComponent {
 };
 
 struct SkyboxTag {
-    bool isSkybox;
+    bool isSkybox; //This should change
 };
 
 /*

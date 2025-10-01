@@ -143,7 +143,7 @@ public:
         materialsInScene.resize(MAX_ENTITIES);
         entitiesInScene.reserve(MAX_ENTITIES);
         skyboxesInScene.resize(MAX_ENTITIES);
-        entityTemplates.reserve(3);
+        entityTemplates.reserve(5);
         parseEntityTemplateFile();
     }
     void updateTransforms(uint32_t entityId, glm::mat4 transform) {
@@ -188,7 +188,7 @@ public:
             }
             else if (prefix == "skybox") {
                 auto& entity = entityTemplates.back();
-                SkyboxTag skyboxTag;
+                SkyboxTag skyboxTag{ true };
                 entity.components.emplace_back(skyboxTag);
             }
         }
