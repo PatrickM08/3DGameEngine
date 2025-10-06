@@ -1,6 +1,8 @@
+pointlight 0.0 1.0 0.0
+
 entity skybox
 pos 0 0 0
-entitiy cube
+entity cube
 pos 0 0 0
 algo grid
 entity baseplate

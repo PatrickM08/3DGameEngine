@@ -156,40 +156,79 @@ public:
             throw std::runtime_error("Error opening entity template file.");
         }
         std::string line;
+        std::string entityName;
         while (std::getline(file, line)) {
             std::istringstream stream(line);
             std::string prefix;
             stream >> prefix;
             if (prefix == "entity") {
-                entityTemplates.emplace_back();
-                auto& entity = entityTemplates.back();
-                std::string entityName;
                 stream >> entityName;
-                entity.name = entityName;
+                entityTemplates[entityName] = EntityTemplate();
+                entityTemplates[entityName].name = entityName;
             }
             else if (prefix == "mesh") {
-                auto& entity = entityTemplates.back();
                 uint32_t meshHandle;
                 stream >> meshHandle;
                 MeshHandleStorage handle{ meshHandle };
-                entity.components.emplace_back(handle);
+                entityTemplates[entityName].components.emplace_back(handle);
             }
             else if (prefix == "material") {
-                auto& entity = entityTemplates.back();
                 uint32_t materialHandle;
                 stream >> materialHandle;
                 MaterialHandleStorage handle{ materialHandle };
-                entity.components.emplace_back(handle);
+                entityTemplates[entityName].components.emplace_back(handle);
             }
             else if (prefix == "transform") {
-                auto& entity = entityTemplates.back();
-                TransformComponent transform{ glm::mat4(1.0f)}; //This needs to be changed, or not could keep everything here until scene file
-                entity.components.emplace_back(transform);
+                TransformComponent transform{ glm::mat4(1.0f) }; //This needs to be changed, or not could keep everything here until scene file
+                entityTemplates[entityName].components.emplace_back(transform);
             }
             else if (prefix == "skybox") {
-                auto& entity = entityTemplates.back();
                 SkyboxTag skyboxTag{ true };
-                entity.components.emplace_back(skyboxTag);
+                entityTemplates[entityName].components.emplace_back(skyboxTag);
+            }
+        }
+    }
+
+    void parseSceneFile() {
+        std::ifstream file("scene.txt"); //CHANGE
+        if (!file.is_open()) {
+            throw std::runtime_error("Error opening scene file.");
+        }
+        std::string line;
+        uint32_t entityCount = 0;
+        while (std::getline(file, line)) {
+            std::istringstream stream(line);
+            std::string prefix;
+            stream >> prefix;
+            if (prefix == "pointlight") {
+                glm::vec3 pos;
+                stream >> pos.x >> pos.y >> pos.z;
+                pointlightPostions.push_back(pos);
+            }
+            if (prefix == "entity") {
+                entitiesInScene.emplace_back(entityCount++);
+                auto& entity = entitiesInScene.back();
+                std::string entityName;
+                stream >> entityName;
+
+                for (auto& blob : entityTemplate.components) {
+                    if (blob.typeID == getTypeID<MeshHandleStorage>()) {
+                        auto& meshHandleStorage = deserializeBlob<MeshHandleStorage>(blob);
+                        meshesInScene[entity.id] = assetManager.getMesh(meshHandleStorage.meshHandle);
+                    }
+                    else if (blob.typeID == getTypeID<MaterialHandleStorage>()) {
+                        auto& materialHandleStorage = deserializeBlob<MaterialHandleStorage>(blob);
+                        materialsInScene[entity.id] = assetManager.getMaterial(materialHandleStorage.materialHandle);
+                    }
+                    else if (blob.typeID == getTypeID<TransformComponent>()) {
+                        auto& transformComponent = deserializeBlob<TransformComponent>(blob);
+                        transformsInScene[entity.id] = transformComponent;
+                    }
+                    else if (blob.typeID == getTypeID<SkyboxTag>()) {
+                        auto& skyboxTag = deserializeBlob<SkyboxTag>(blob);
+                        skyboxesInScene[entity.id] = skyboxTag;
+                    }
+                }
             }
         }
     }
@@ -200,7 +239,8 @@ public:
     std::vector<MaterialData> materialsInScene;
     std::vector<Entity> entitiesInScene;
     std::vector<SkyboxTag> skyboxesInScene;
-    std::vector<EntityTemplate> entityTemplates;
+    std::unordered_map<std::string, EntityTemplate> entityTemplates;
+    std::vector<glm::vec3> pointlightPostions;
 };
 
 
