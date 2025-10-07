@@ -296,6 +296,6 @@ const MeshData& AssetManager::getMesh(uint32_t handle) {
     return meshes[handle];
 }
 
-const MaterialData& AssetManager::getMaterial(uint32_t handle) {
+MaterialData& AssetManager::getMaterial(uint32_t handle) {
     return materials[handle];
 }

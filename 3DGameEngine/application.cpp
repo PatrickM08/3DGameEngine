@@ -13,56 +13,9 @@ Application::Application()
     lastX(0.0f),
     lastY(0.0f),
     deltaTime(0.0f),
-    lastFrame(0.0f)
+    lastFrame(0.0f),
+    scene(assetManager)
 {
-    /*
-    Materials materials(assetManager);
-    Meshes meshes(assetManager);
-    Entity skyboxEntity{ .id = 0 };
-    scene.entitiesInScene.push_back(skyboxEntity);
-    scene.skyboxesInScene[skyboxEntity.id].isSkybox = true;
-    scene.materialsInScene[skyboxEntity.id] = materials.materials["skybox"];
-    scene.meshesInScene[skyboxEntity.id] = meshes.meshes["skybox"];
-
-    Entity cubeEntity{ .id = 1 };
-    scene.entitiesInScene.push_back(cubeEntity);
-    scene.materialsInScene[cubeEntity.id] = materials.materials["cube"];
-    scene.meshesInScene[cubeEntity.id] = meshes.meshes["cube"];
-    glm::mat4 model = glm::mat4(1.0f);
-    scene.updateTransforms(cubeEntity.id, model);
-    materials.materials["cube"].shader.setMat3Uniform("normalMatrix", glm::mat3(glm::transpose(glm::inverse(model))));
-
-    Entity baseplateEntity{ .id = 2 };
-    scene.entitiesInScene.push_back(baseplateEntity);
-    scene.meshesInScene[baseplateEntity.id] = meshes.meshes["baseplate"];
-    scene.materialsInScene[baseplateEntity.id] = materials.materials["simple"];
-    scene.updateTransforms(baseplateEntity.id, model);
-    */
-
-    uint32_t entityCount = 0;
-    for (EntityTemplate& entityTemplate : scene.entityTemplates) {
-        Entity entity{ entityCount++ };
-        scene.entitiesInScene.push_back(entity);
-
-        for (auto& blob : entityTemplate.components) {
-            if (blob.typeID == getTypeID<MeshHandleStorage>()) {
-                auto& meshHandleStorage = deserializeBlob<MeshHandleStorage>(blob);
-                scene.meshesInScene[entity.id] = assetManager.getMesh(meshHandleStorage.meshHandle);
-            }
-            else if (blob.typeID == getTypeID<MaterialHandleStorage>()) {
-                auto& materialHandleStorage = deserializeBlob<MaterialHandleStorage>(blob);
-                scene.materialsInScene[entity.id] = assetManager.getMaterial(materialHandleStorage.materialHandle);
-            }
-            else if (blob.typeID == getTypeID<TransformComponent>()) {
-                auto& transformComponent = deserializeBlob<TransformComponent>(blob);
-                scene.transformsInScene[entity.id] = transformComponent;
-            }
-            else if (blob.typeID == getTypeID<SkyboxTag>()) {
-                auto& skyboxTag = deserializeBlob<SkyboxTag>(blob);
-                scene.skyboxesInScene[entity.id] = skyboxTag;
-            }
-        }
-    }
 }
 
 int Application::run() {

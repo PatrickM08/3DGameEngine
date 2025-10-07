@@ -44,5 +44,5 @@ private:
 public:
 	AssetManager();
 	const MeshData& getMesh(uint32_t handle);
-	const MaterialData& getMaterial(uint32_t handle);
+	MaterialData& getMaterial(uint32_t handle);
 };
