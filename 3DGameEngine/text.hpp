@@ -1,9 +1,7 @@
-#ifndef TEXT_HPP
-#define TEXT_HPP
+#pragma once
 
 #include <unordered_map>
-
-struct MeshBuffers;
+#include "shader_s.h"
 
 struct Glyph {
     int id, x, y, width, height, xoffset, yoffset, xadvance;
@@ -13,6 +11,4 @@ struct Glyph {
 
 std::unordered_map<int, Glyph> parseFont(const char* path);
 int loadBitmapFont(const char* path, std::unordered_map<int, Glyph>& glyphs);
-void setupTextBuffers(MeshBuffers& text);
 void renderText(const char* text, float x, float y, float size, unsigned int& textVBO, Shader& textShader,const unsigned int SCR_WIDTH, const unsigned int SCR_HEIGHT, const std::unordered_map<int, Glyph>& glyphs);
-#endif

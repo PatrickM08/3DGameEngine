@@ -1,4 +1,3 @@
-/*
 #define _CRT_SECURE_NO_WARNINGS
 #include <unordered_map>
 #include "shader_s.h"
@@ -10,17 +9,6 @@
 #include <vector>    
 #include <glm/glm.hpp>  
 const int MAX_TEXT_LENGTH = 30;
-
-void setupTextBuffers(MeshBuffers& text) {
-    glBindVertexArray(text.VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, text.VBO);
-    glBufferData(GL_ARRAY_BUFFER, MAX_TEXT_LENGTH * 24 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-}
 
 void renderText(const char* text, float x, float y, float size, unsigned int& textVBO, Shader& textShader,
                 const unsigned int SCR_WIDTH, const unsigned int SCR_HEIGHT, const std::unordered_map<int, Glyph>& glyphs) {
@@ -145,4 +133,3 @@ int loadBitmapFont(const char* path, std::unordered_map<int, Glyph>& glyphs) {
 
     return textureID;
 }
-*/

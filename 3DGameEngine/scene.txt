@@ -5,5 +5,9 @@ pos 0 0 0
 entity cube
 pos 0 0 0
 algo grid
+entity cube
+pos 0 3 0
 entity baseplate
 pos 0 0 0
+entity tree
+pos 0 2 5

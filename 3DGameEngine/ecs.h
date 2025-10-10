@@ -76,6 +76,7 @@ public:
         materialsInScene.resize(MAX_ENTITIES);
         entitiesInScene.reserve(MAX_ENTITIES);
         skyboxesInScene.resize(MAX_ENTITIES);
+        instancedEntitiesInScene.resize(MAX_ENTITIES);
         entityTemplates.reserve(5);
         parseEntityTemplateFile();
         parseSceneFile();
@@ -214,6 +215,8 @@ public:
                     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
                     glEnableVertexAttribArray(3);
                     glVertexAttribDivisor(3, 1);
+
+                    instancedEntitiesInScene[entity.id] = InstancedTag{ NUM_BOXES };
                 }
             }
         }
@@ -226,6 +229,7 @@ public:
     std::vector<MaterialData> materialsInScene;
     std::vector<Entity> entitiesInScene;
     std::vector<SkyboxTag> skyboxesInScene;
+    std::vector<InstancedTag> instancedEntitiesInScene;
     std::unordered_map<std::string, EntityTemplate> entityTemplates;
     std::vector<glm::vec3> pointLightPositions;
 };

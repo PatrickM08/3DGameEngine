@@ -12,3 +12,8 @@ entity baseplate
 mesh 0
 material 0
 transform 0,0,0 0,0,0 1,1,1
+
+entity tree
+mesh 3
+material 0
+transform 0,0,0 0,0,0 1,1,1

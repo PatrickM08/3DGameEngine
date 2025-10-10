@@ -6,7 +6,7 @@
 
 Application::Application()
     : window(1600, 1200, "Draft"),
-     windowPtr(window.getGlfwWindowPtr()),
+    windowPtr(window.getGlfwWindowPtr()),
     renderSystem(window),
     camera(glm::vec3(0.0f, 0.0f, 3.0f)),
     firstMouse(true),

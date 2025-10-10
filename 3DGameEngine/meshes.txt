@@ -2,3 +2,4 @@
 0 baseplate.obj GL_STATIC_DRAW
 1 cube.obj GL_STATIC_DRAW
 2 skybox.obj GL_STATIC_DRAW
+3 tree.obj GL_STATIC_DRAW

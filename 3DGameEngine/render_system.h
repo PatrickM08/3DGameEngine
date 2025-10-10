@@ -13,26 +13,30 @@
 #include "asset_manager.h"
 #include "entity.h"
 #include "ecs.h"
-
+#include "text.hpp"
 
 struct Framebuffer {
     GLuint buffer;
     GLuint textureAttachment;
     GLuint renderBufferObject;
     uint32_t width, height;
+    Shader shader;
 };
 
-Framebuffer createFrameBuffer(uint32_t width, uint32_t height);
+Framebuffer createFrameBuffer(const char* vsPath, const char* fsPath, uint32_t width, uint32_t height);
 
 
 class RenderSystem {
 public:
-    RenderSystem(Window& window) {
+    RenderSystem(Window& window)
+        : framebuffer(createFrameBuffer("fb_vertex_shader.vs", "fb_fragment_shader.fs", window.width, window.height))
+    {
         initOpenglState();
-        Framebuffer framebuffer = createFrameBuffer(window.width, window.height);
+        quadVAO = createQuad();
     }
 
     void renderScene(Camera& camera, ECS& scene) {
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.buffer);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         for (Entity e : scene.entitiesInScene) {
             MaterialData& material = scene.materialsInScene[e.id];
@@ -55,14 +59,23 @@ public:
                 glActiveTexture(GL_TEXTURE0 + i);
                 glBindTexture(material.textures[i].target, material.textures[i].id);
             }
-            if (mesh.handle != 1) { //CHANGEEEEEE
+            if (scene.instancedEntitiesInScene[e.id].numberOfInstances == 0) {
                 glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
             }
             else {
-                glDrawArraysInstanced(GL_TRIANGLES, 0, mesh.vertexCount, 1024);
+                glDrawArraysInstanced(GL_TRIANGLES, 0, mesh.vertexCount, scene.instancedEntitiesInScene[e.id].numberOfInstances);
             }
             glDepthFunc(GL_LESS);
         }
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        framebuffer.shader.use();
+        glBindVertexArray(quadVAO);
+        glDisable(GL_DEPTH_TEST);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, framebuffer.textureAttachment);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glEnable(GL_DEPTH_TEST);
     }
 private:
     void initOpenglState() {
@@ -72,10 +85,36 @@ private:
         glEnable(GL_CULL_FACE);
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     }
+
+    GLuint createQuad() {
+        float quadVertices[] = {
+            -1.0f,  1.0f,  0.0f, 1.0f,  
+            -1.0f, -1.0f,  0.0f, 0.0f,  
+             1.0f, -1.0f,  1.0f, 0.0f,  
+
+            -1.0f,  1.0f,  0.0f, 1.0f, 
+             1.0f, -1.0f,  1.0f, 0.0f,
+             1.0f,  1.0f,  1.0f, 1.0f
+        };
+        unsigned int quadVAO, quadVBO;
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+        return quadVAO;
+    }
+
+private:
+    Framebuffer framebuffer;
+    GLuint quadVAO;
 };
 
-
-Framebuffer createFrameBuffer(uint32_t width, uint32_t height) {
+Framebuffer createFrameBuffer(const char* vsPath, const char* fsPath, uint32_t width, uint32_t height) {
     unsigned int framebuffer;
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -98,9 +137,11 @@ Framebuffer createFrameBuffer(uint32_t width, uint32_t height) {
         std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+    Shader framebufferShader(vsPath, fsPath);
     return Framebuffer{
         .buffer = framebuffer,
         .textureAttachment = textureColorbuffer,
-        .renderBufferObject = rbo
+        .renderBufferObject = rbo,
+        .shader = framebufferShader
     };
 }
