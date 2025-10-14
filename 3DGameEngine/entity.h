@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <GLFW/glfw3.h>
 
 
@@ -14,12 +15,30 @@ struct Entity {
 
 struct TransformComponent {
     glm::mat4 transform;
-};
-
-struct SkyboxTag {
-    bool isSkybox; //This should change
+    glm::quat rotation;
 };
 
 struct InstancedTag {
     uint32_t numberOfInstances = 0;
+};
+
+struct VelocityComponent {
+    glm::vec3 velocity;
+};
+
+struct SpeedComponent {
+    float speed;
+};
+
+// These need to change
+struct PlayerInputWorldTag {
+    bool hasPlayerInputWorld;
+};
+
+struct PlayerInputTankTag {
+    bool hasPlayerInputTank;
+};
+
+struct SkyboxTag {
+    bool isSkybox;
 };

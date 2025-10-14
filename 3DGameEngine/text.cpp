@@ -10,11 +10,23 @@
 #include <glm/glm.hpp>  
 const int MAX_TEXT_LENGTH = 30;
 
-void renderText(const char* text, float x, float y, float size, unsigned int& textVBO, Shader& textShader,
-                const unsigned int SCR_WIDTH, const unsigned int SCR_HEIGHT, const std::unordered_map<int, Glyph>& glyphs) {
-    textShader.setVec2Uniform("screenPosition", glm::vec2(x, y));
+Text::Text(const char* fontInfoFile, const char* fontTextureFile) 
+    : glyphs(parseFont(fontInfoFile)),
+    bitmapFontTexture(loadBitmapFont(fontTextureFile)),
+    textShader("text_vertex_shader.vs", "text_fragment_shader.fs")
+{
+    setupTextBuffers();
+}
+
+void Text::renderText(const char* text, const float xPos, const float yPos, const float size, const uint32_t screenWidth, const uint32_t screenHeight) {
+    textShader.use();
+    glBindVertexArray(textVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, bitmapFontTexture);
+
+    textShader.setVec2Uniform("screenPosition", glm::vec2(xPos, yPos));
     textShader.setFloatUniform("scale", size);
-    textShader.setVec2Uniform("screenSize", glm::vec2(SCR_WIDTH, SCR_HEIGHT));
+    textShader.setVec2Uniform("screenSize", glm::vec2(screenWidth, screenHeight));
 
     int length = strlen(text);
     static float vertices[MAX_TEXT_LENGTH * 24];
@@ -30,8 +42,8 @@ void renderText(const char* text, float x, float y, float size, unsigned int& te
 
         float left = currentX + glyph.xoffset;
         float right = left + glyph.width;
-        float bottom = glyph.yoffset;
-        float top = glyph.yoffset + glyph.height;
+        float bottom = -glyph.yoffset;
+        float top = -glyph.yoffset + glyph.height;
 
         // Top-left vertex
         vertices[base + 0] = left;
@@ -76,7 +88,7 @@ void renderText(const char* text, float x, float y, float size, unsigned int& te
     glDrawArrays(GL_TRIANGLES, 0, 6 * length);
 }
 
-std::unordered_map<int, Glyph> parseFont(const char* path) {
+std::unordered_map<int, Glyph> Text::parseFont(const char* path) {
     std::unordered_map<int, Glyph> glyphs;
     std::ifstream fileFnt(path);
     if (!fileFnt.is_open()) {
@@ -97,8 +109,8 @@ std::unordered_map<int, Glyph> parseFont(const char* path) {
 }
 
 
-int loadBitmapFont(const char* path, std::unordered_map<int, Glyph>& glyphs) {
-    unsigned int textureID;
+uint32_t Text::loadBitmapFont(const char* path) {
+    uint32_t textureID;
     glGenTextures(1, &textureID);
 
     int width, height, nrComponents;
@@ -132,4 +144,18 @@ int loadBitmapFont(const char* path, std::unordered_map<int, Glyph>& glyphs) {
     }
 
     return textureID;
+}
+
+void Text::setupTextBuffers() {
+    glGenVertexArrays(1, &textVAO);
+    glGenBuffers(1, &textVBO);
+
+    glBindVertexArray(textVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+    glBufferData(GL_ARRAY_BUFFER, MAX_TEXT_LENGTH * 24 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
 }

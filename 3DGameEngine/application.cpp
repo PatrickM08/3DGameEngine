@@ -1,5 +1,9 @@
 #include "Application.h"
 #include "asset_manager.h"
+#include "render_system.h"
+#include "ecs.h"
+#include "movement_system.h"
+#include "camera.h"
 #include <iostream>
 
 
@@ -8,14 +12,19 @@ Application::Application()
     : window(1600, 1200, "Draft"),
     windowPtr(window.getGlfwWindowPtr()),
     renderSystem(window),
-    camera(glm::vec3(0.0f, 0.0f, 3.0f)),
+    camera(CameraType::FIXED, glm::vec3(0.0f, 10.0f, 5.0f), glm::vec3(0.0f, 1.0f, 0.0f), -90.0f, -45.0f),
     firstMouse(true),
     lastX(0.0f),
     lastY(0.0f),
     deltaTime(0.0f),
     lastFrame(0.0f),
-    scene(assetManager)
+    scene(assetManager),
+    movementSystem(scene),
+    worldSpaceInputSystem(scene),
+    tankInputSystem(scene),
+    inputDirection(glm::vec3(0.0f, 0.0f, 0.0f))
 {
+    camera.updateProjectionMatrix(window.width, window.height);
 }
 
 int Application::run() {
@@ -29,7 +38,10 @@ int Application::run() {
             handleEvent(event);
         }
         camera.updateViewMatrix();
-        camera.updateProjectionMatrix(window.width, window.height);
+
+        worldSpaceInputSystem.updateVelocity(inputDirection);
+        tankInputSystem.updateVelocity(inputDirection, deltaTime);
+        movementSystem.updateTransforms(deltaTime);
         renderSystem.renderScene(camera, scene);
         glfwSwapBuffers(windowPtr);
     }
@@ -42,8 +54,10 @@ void Application::handleEvent(const Event& event) {
         glViewport(0, 0, event.resize.width, event.resize.height);
         window.width = event.resize.width;
         window.height = event.resize.height;
+        camera.updateProjectionMatrix(window.width, window.height);
         break;
     }
+
     case EventType::MouseMove: {
         if (firstMouse)
         {
@@ -69,16 +83,25 @@ void Application::handleEvent(const Event& event) {
 }
 
 void Application::handleKeyInput() {
+    inputDirection.direction = glm::vec3(0.0f, 0.0f, 0.0f);
     if (glfwGetKey(windowPtr, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(windowPtr, true);
-    if (glfwGetKey(windowPtr, GLFW_KEY_W) == GLFW_PRESS)
+    if (glfwGetKey(windowPtr, GLFW_KEY_W) == GLFW_PRESS) {
         camera.ProcessKeyboard(FORWARD, deltaTime);
-    if (glfwGetKey(windowPtr, GLFW_KEY_S) == GLFW_PRESS)
+        inputDirection.direction += glm::vec3(0.0f, 0.0f, -1.0f);
+    }
+    if (glfwGetKey(windowPtr, GLFW_KEY_S) == GLFW_PRESS) {
         camera.ProcessKeyboard(BACKWARD, deltaTime);
-    if (glfwGetKey(windowPtr, GLFW_KEY_A) == GLFW_PRESS)
+        inputDirection.direction += glm::vec3(0.0f, 0.0f, 1.0f);
+    }
+    if (glfwGetKey(windowPtr, GLFW_KEY_A) == GLFW_PRESS) {
         camera.ProcessKeyboard(LEFT, deltaTime);
-    if (glfwGetKey(windowPtr, GLFW_KEY_D) == GLFW_PRESS)
+        inputDirection.direction += glm::vec3(-1.0f, 0.0f, 0.0f);
+    }
+    if (glfwGetKey(windowPtr, GLFW_KEY_D) == GLFW_PRESS) {
         camera.ProcessKeyboard(RIGHT, deltaTime);
+        inputDirection.direction += glm::vec3(1.0f, 0.0f, 0.0f);
+    }
 }
 
 void Application::updateTiming() {
@@ -91,29 +114,3 @@ int main() {
     Application app;
     app.run();
 }
-
-
-
-/*
-void processInput(GLFWwindow* window, RenderState& state)
-{
-    static bool eWasPressed = false;
-    bool eIsPressed = glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS;
-
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        state.camera.ProcessKeyboard(FORWARD, state.deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        state.camera.ProcessKeyboard(BACKWARD, state.deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        state.camera.ProcessKeyboard(LEFT, state.deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        state.camera.ProcessKeyboard(RIGHT, state.deltaTime);
-    if (eIsPressed && !eWasPressed) {
-        state.showFPS = !state.showFPS;
-    }
-    eWasPressed = eIsPressed;
-}
-*/

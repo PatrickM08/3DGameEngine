@@ -2,6 +2,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include "entity.h"
 #include "asset_manager.h"
 #include <unordered_map>
@@ -64,9 +65,6 @@ struct EntityTemplate {
     std::vector<ComponentBlob> components; // Maybe this can be replaced if we know the maximum number of components
 };
 
-
-
-
 class ECS {
 public:
     ECS(AssetManager& am) {
@@ -77,6 +75,10 @@ public:
         entitiesInScene.reserve(MAX_ENTITIES);
         skyboxesInScene.resize(MAX_ENTITIES);
         instancedEntitiesInScene.resize(MAX_ENTITIES);
+        playerInputWorldEntities.resize(MAX_ENTITIES);
+        playerInputTankEntities.resize(MAX_ENTITIES);
+        velocitiesOfEntities.resize(MAX_ENTITIES);
+        speedsOfEntities.resize(MAX_ENTITIES);
         entityTemplates.reserve(5);
         parseEntityTemplateFile();
         parseSceneFile();
@@ -114,12 +116,22 @@ public:
                 entityTemplates[entityName].components.emplace_back(handle);
             }
             else if (prefix == "transform") {
-                TransformComponent transform{ glm::mat4(1.0f) }; //This needs to be changed, or not could keep everything here until scene file
+                TransformComponent transform{ glm::mat4(1.0f), glm::quat_cast(glm::mat4(1.0f)) }; //This needs to be changed, or not could keep everything here until scene file
                 entityTemplates[entityName].components.emplace_back(transform);
             }
             else if (prefix == "skybox") {
                 SkyboxTag skyboxTag{ true };
                 entityTemplates[entityName].components.emplace_back(skyboxTag);
+            }
+            else if (prefix == "velocity") {
+                VelocityComponent velocity{ glm::vec3(0.0f, 0.0f, 0.0f) };
+                entityTemplates[entityName].components.emplace_back(velocity);
+            }
+            else if (prefix == "speed") {
+                float sp;
+                stream >> sp;
+                SpeedComponent speed{ sp };
+                entityTemplates[entityName].components.emplace_back(speed);
             }
         }
     }
@@ -140,7 +152,7 @@ public:
                 stream >> pos.x >> pos.y >> pos.z;
                 pointLightPositions.push_back(pos);
             }
-            if (prefix == "entity") {
+            else if (prefix == "entity") {
                 entitiesInScene.emplace_back(entityCount++);
                 auto& entity = entitiesInScene.back();
                 std::string entityName;
@@ -182,15 +194,32 @@ public:
                         auto& skyboxTag = deserializeBlob<SkyboxTag>(blob);
                         skyboxesInScene[entity.id] = skyboxTag;
                     }
+                    else if (blob.typeID == getTypeID<VelocityComponent>()) {
+                        auto& velocity = deserializeBlob<VelocityComponent>(blob);
+                        velocitiesOfEntities[entity.id] = velocity;
+                    }
+                    else if (blob.typeID == getTypeID<SpeedComponent>()) {
+                        auto& speed = deserializeBlob<SpeedComponent>(blob);
+                        speedsOfEntities[entity.id] = speed;
+                    }
                 }
             }
-            if (prefix == "pos") {
+            else if (prefix == "pos") {
                 auto& entity = entitiesInScene.back();
                 glm::vec3 spawnPosition;
                 stream >> spawnPosition.x >> spawnPosition.y >> spawnPosition.z;
                 transformsInScene[entity.id].transform = glm::translate(transformsInScene[entity.id].transform, spawnPosition);
             }
-            if (prefix == "algo") {
+            else if (prefix == "playerInputWorld") {
+                auto& entity = entitiesInScene.back();
+                playerInputWorldEntities[entity.id].hasPlayerInputWorld = true;
+            }
+            else if (prefix == "playerInputTank") {
+                auto& entity = entitiesInScene.back();
+                playerInputTankEntities[entity.id].hasPlayerInputTank = true;
+            }
+
+            else if (prefix == "algo") {
                 auto& entity = entitiesInScene.back();
                 std::string algorithmName;
                 stream >> algorithmName;
@@ -230,6 +259,10 @@ public:
     std::vector<Entity> entitiesInScene;
     std::vector<SkyboxTag> skyboxesInScene;
     std::vector<InstancedTag> instancedEntitiesInScene;
+    std::vector<PlayerInputWorldTag> playerInputWorldEntities;
+    std::vector<PlayerInputTankTag> playerInputTankEntities;
+    std::vector<VelocityComponent> velocitiesOfEntities;
+    std::vector<SpeedComponent> speedsOfEntities;
     std::unordered_map<std::string, EntityTemplate> entityTemplates;
     std::vector<glm::vec3> pointLightPositions;
 };

@@ -9,6 +9,19 @@ struct Glyph {
     float u1, v1;
 };
 
-std::unordered_map<int, Glyph> parseFont(const char* path);
-int loadBitmapFont(const char* path, std::unordered_map<int, Glyph>& glyphs);
-void renderText(const char* text, float x, float y, float size, unsigned int& textVBO, Shader& textShader,const unsigned int SCR_WIDTH, const unsigned int SCR_HEIGHT, const std::unordered_map<int, Glyph>& glyphs);
+
+class Text {
+public:
+    Text(const char* fontInfoFile, const char* fontTextureFile);
+    void renderText(const char* text, const float xPos, const float yPos, const float size, const uint32_t screenWidth, const uint32_t screenHeight);
+private:
+    std::unordered_map<int, Glyph> parseFont(const char* fontInfofile);
+    uint32_t loadBitmapFont(const char* fontTextureFile);
+    void setupTextBuffers();
+private:
+    std::unordered_map<int, Glyph> glyphs;
+    GLuint bitmapFontTexture;
+    Shader textShader;
+    GLuint textVAO;
+    GLuint textVBO;
+};

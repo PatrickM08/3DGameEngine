@@ -29,10 +29,11 @@ Framebuffer createFrameBuffer(const char* vsPath, const char* fsPath, uint32_t w
 class RenderSystem {
 public:
     RenderSystem(Window& window)
-        : framebuffer(createFrameBuffer("fb_vertex_shader.vs", "fb_fragment_shader.fs", window.width, window.height))
+        : window(window),
+        framebuffer(createFrameBuffer("fb_vertex_shader.vs", "fb_fragment_shader.fs", window.width, window.height)), //THIS NEEDS TO BE UPDATED ON CHANGE
+        quadVAO(createQuad())
     {
         initOpenglState();
-        quadVAO = createQuad();
     }
 
     void renderScene(Camera& camera, ECS& scene) {
@@ -66,7 +67,7 @@ public:
                 glDrawArraysInstanced(GL_TRIANGLES, 0, mesh.vertexCount, scene.instancedEntitiesInScene[e.id].numberOfInstances);
             }
             glDepthFunc(GL_LESS);
-        }
+        } 
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         framebuffer.shader.use();
@@ -110,6 +111,7 @@ private:
     }
 
 private:
+    Window window;
     Framebuffer framebuffer;
     GLuint quadVAO;
 };

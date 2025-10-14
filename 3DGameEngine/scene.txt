@@ -1,13 +1,8 @@
-pointlight 0.0 3.0 0.0
-pointlight 20.0 1.0 -20.0
+pointlight 0.0 1.0 0.0
 entity skyboxSky
 pos 0 0 0
 entity cube
 pos 0 0 0
-algo grid
-entity cube
-pos 0 3 0
+playerInputTank
 entity baseplate
-pos 0 0 0
-entity tree
-pos 0 2 5
+pos -20 0 20

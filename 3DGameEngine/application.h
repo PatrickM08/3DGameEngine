@@ -5,6 +5,7 @@
 #include "asset_manager.h"
 #include "ecs.h"
 #include "entity.h"
+#include "movement_system.h"
 
 class Application {
 private:
@@ -17,6 +18,10 @@ private:
     float deltaTime, lastFrame;
     AssetManager assetManager;
     ECS scene;
+    MovementSystem movementSystem;
+    WorldSpaceInputSystem worldSpaceInputSystem;
+    TankInputSystem tankInputSystem;
+    InputDirection inputDirection;
 
 private:
     void handleEvent(const Event& event);
