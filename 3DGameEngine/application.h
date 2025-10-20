@@ -12,7 +12,6 @@ private:
     Window window;
     GLFWwindow* windowPtr;
     RenderSystem renderSystem;
-    Camera camera;
     bool firstMouse;
     float lastX, lastY;
     float deltaTime, lastFrame;
@@ -22,6 +21,7 @@ private:
     WorldSpaceInputSystem worldSpaceInputSystem;
     TankInputSystem tankInputSystem;
     InputDirection inputDirection;
+    PatrolSystem patrolSystem;
 
 private:
     void handleEvent(const Event& event);

@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <memory>
 #include "shader_s.h"
+#include "camera.h"
+#include <cassert>
 
 
 struct MeshHandleStorage {
@@ -62,7 +64,7 @@ T& deserializeBlob(ComponentBlob& blob) {
 // actual ecs entities.
 struct EntityTemplate {
     std::string name;
-    std::vector<ComponentBlob> components; // Maybe this can be replaced if we know the maximum number of components
+    std::vector<ComponentBlob> components;
 };
 
 class ECS {
@@ -79,14 +81,13 @@ public:
         playerInputTankEntities.resize(MAX_ENTITIES);
         velocitiesOfEntities.resize(MAX_ENTITIES);
         speedsOfEntities.resize(MAX_ENTITIES);
-        entityTemplates.reserve(5);
+        rotationSpeedsOfEntities.resize(MAX_ENTITIES);
+        patrolEntities.resize(MAX_ENTITIES);
+        entityTemplates.reserve(10);
         parseEntityTemplateFile();
         parseSceneFile();
     }
-    void updateTransforms(uint32_t entityId, glm::mat4 transform) {
-        transformsInScene[entityId].transform = transform;
-    }
-
+    
     void parseEntityTemplateFile() {
         std::ifstream file("entities.txt"); // CHANGE THIS SHOULDNT BE HERE
         if (!file.is_open()) {
@@ -133,6 +134,12 @@ public:
                 SpeedComponent speed{ sp };
                 entityTemplates[entityName].components.emplace_back(speed);
             }
+            else if (prefix == "rotationSpeed") {
+                float rs;
+                stream >> rs;
+                RotationSpeedComponent rotationSpeed{ rs };
+                entityTemplates[entityName].components.emplace_back(rotationSpeed);
+            }
         }
     }
 
@@ -147,7 +154,21 @@ public:
             std::istringstream stream(line);
             std::string prefix;
             stream >> prefix;
-            if (prefix == "pointlight") {
+            if (prefix == "camera") {
+                std::string type;
+                std::string restOfLine;
+                std::getline(stream, restOfLine);
+                std::replace(restOfLine.begin(), restOfLine.end(), ',', ' ');
+                std::istringstream cameraStream(restOfLine);
+                cameraStream >> type >> camera.Position.x >> camera.Position.y >> camera.Position.z >> camera.WorldUp.x 
+                    >> camera.WorldUp.y >> camera.WorldUp.z >> camera.Yaw >> camera.Pitch;
+                CameraType cameraType = CameraType::FIRSTPERSON;
+                if (type == "first") cameraType = CameraType::FIRSTPERSON;
+                else if (type == "fixed") cameraType = CameraType::FIXED;
+                camera.cameraType = cameraType;
+                camera.updateCameraVectors();
+            }
+            else if (prefix == "pointlight") {
                 glm::vec3 pos;
                 stream >> pos.x >> pos.y >> pos.z;
                 pointLightPositions.push_back(pos);
@@ -202,6 +223,10 @@ public:
                         auto& speed = deserializeBlob<SpeedComponent>(blob);
                         speedsOfEntities[entity.id] = speed;
                     }
+                    else if (blob.typeID == getTypeID<RotationSpeedComponent>()) {
+                        auto& rotSpeed = deserializeBlob<RotationSpeedComponent>(blob);
+                        rotationSpeedsOfEntities[entity.id] = rotSpeed;
+                    }
                 }
             }
             else if (prefix == "pos") {
@@ -218,7 +243,13 @@ public:
                 auto& entity = entitiesInScene.back();
                 playerInputTankEntities[entity.id].hasPlayerInputTank = true;
             }
-
+            else if (prefix == "patrol") {
+                auto& entity = entitiesInScene.back();
+                stream >> patrolEntities[entity.id].direction.x >> patrolEntities[entity.id].direction.y
+                    >> patrolEntities[entity.id].direction.z >> patrolEntities[entity.id].magnitude;
+                patrolEntities[entity.id].direction = glm::normalize(patrolEntities[entity.id].direction);
+                patrolEntities[entity.id].currentPatrolDistance = 0;
+            }
             else if (prefix == "algo") {
                 auto& entity = entitiesInScene.back();
                 std::string algorithmName;
@@ -253,6 +284,7 @@ public:
 
 public:
     AssetManager assetManager;
+    Camera camera;
     std::vector<TransformComponent> transformsInScene;
     std::vector<MeshData> meshesInScene;
     std::vector<MaterialData> materialsInScene;
@@ -263,6 +295,8 @@ public:
     std::vector<PlayerInputTankTag> playerInputTankEntities;
     std::vector<VelocityComponent> velocitiesOfEntities;
     std::vector<SpeedComponent> speedsOfEntities;
+    std::vector<RotationSpeedComponent> rotationSpeedsOfEntities;
+    std::vector<PatrolComponent> patrolEntities;
     std::unordered_map<std::string, EntityTemplate> entityTemplates;
     std::vector<glm::vec3> pointLightPositions;
 };

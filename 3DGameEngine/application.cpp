@@ -12,7 +12,6 @@ Application::Application()
     : window(1600, 1200, "Draft"),
     windowPtr(window.getGlfwWindowPtr()),
     renderSystem(window),
-    camera(CameraType::FIXED, glm::vec3(0.0f, 10.0f, 5.0f), glm::vec3(0.0f, 1.0f, 0.0f), -90.0f, -45.0f),
     firstMouse(true),
     lastX(0.0f),
     lastY(0.0f),
@@ -22,9 +21,10 @@ Application::Application()
     movementSystem(scene),
     worldSpaceInputSystem(scene),
     tankInputSystem(scene),
+    patrolSystem(scene),
     inputDirection(glm::vec3(0.0f, 0.0f, 0.0f))
 {
-    camera.updateProjectionMatrix(window.width, window.height);
+    scene.camera.updateProjectionMatrix(window.width, window.height);
 }
 
 int Application::run() {
@@ -37,12 +37,13 @@ int Application::run() {
         while (window.pollEvent(event)) {
             handleEvent(event);
         }
-        camera.updateViewMatrix();
+        scene.camera.updateViewMatrix();
 
         worldSpaceInputSystem.updateVelocity(inputDirection);
         tankInputSystem.updateVelocity(inputDirection, deltaTime);
+        patrolSystem.updateVelocity(deltaTime);
         movementSystem.updateTransforms(deltaTime);
-        renderSystem.renderScene(camera, scene);
+        renderSystem.renderScene(scene);
         glfwSwapBuffers(windowPtr);
     }
     return 0;
@@ -54,7 +55,7 @@ void Application::handleEvent(const Event& event) {
         glViewport(0, 0, event.resize.width, event.resize.height);
         window.width = event.resize.width;
         window.height = event.resize.height;
-        camera.updateProjectionMatrix(window.width, window.height);
+        scene.camera.updateProjectionMatrix(window.width, window.height);
         break;
     }
 
@@ -72,11 +73,11 @@ void Application::handleEvent(const Event& event) {
         lastX = event.mouseMove.xPos;
         lastY = event.mouseMove.yPos;
 
-        camera.ProcessMouseMovement(xoffset, yoffset);
+        scene.camera.ProcessMouseMovement(xoffset, yoffset);
         break;
     }
     case EventType::Scroll: {
-        camera.ProcessMouseScroll(event.scroll.yOffset);
+        scene.camera.ProcessMouseScroll(event.scroll.yOffset);
         break;
     }
     }
@@ -87,19 +88,19 @@ void Application::handleKeyInput() {
     if (glfwGetKey(windowPtr, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(windowPtr, true);
     if (glfwGetKey(windowPtr, GLFW_KEY_W) == GLFW_PRESS) {
-        camera.ProcessKeyboard(FORWARD, deltaTime);
+        scene.camera.ProcessKeyboard(FORWARD, deltaTime);
         inputDirection.direction += glm::vec3(0.0f, 0.0f, -1.0f);
     }
     if (glfwGetKey(windowPtr, GLFW_KEY_S) == GLFW_PRESS) {
-        camera.ProcessKeyboard(BACKWARD, deltaTime);
+        scene.camera.ProcessKeyboard(BACKWARD, deltaTime);
         inputDirection.direction += glm::vec3(0.0f, 0.0f, 1.0f);
     }
     if (glfwGetKey(windowPtr, GLFW_KEY_A) == GLFW_PRESS) {
-        camera.ProcessKeyboard(LEFT, deltaTime);
+        scene.camera.ProcessKeyboard(LEFT, deltaTime);
         inputDirection.direction += glm::vec3(-1.0f, 0.0f, 0.0f);
     }
     if (glfwGetKey(windowPtr, GLFW_KEY_D) == GLFW_PRESS) {
-        camera.ProcessKeyboard(RIGHT, deltaTime);
+        scene.camera.ProcessKeyboard(RIGHT, deltaTime);
         inputDirection.direction += glm::vec3(1.0f, 0.0f, 0.0f);
     }
 }

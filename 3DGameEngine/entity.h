@@ -30,6 +30,16 @@ struct SpeedComponent {
     float speed;
 };
 
+struct RotationSpeedComponent {
+    float rotationSpeed;
+};
+
+struct PatrolComponent {
+    glm::vec3 direction = glm::vec3{ 0,0,0 };
+    float magnitude = 0.0f;
+    float currentPatrolDistance = 0.0f;
+};
+
 // These need to change
 struct PlayerInputWorldTag {
     bool hasPlayerInputWorld;

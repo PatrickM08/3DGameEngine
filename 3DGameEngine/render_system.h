@@ -36,7 +36,7 @@ public:
         initOpenglState();
     }
 
-    void renderScene(Camera& camera, ECS& scene) {
+    void renderScene(ECS& scene) {
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.buffer);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         for (Entity e : scene.entitiesInScene) {
@@ -44,16 +44,16 @@ public:
             MeshData& mesh = scene.meshesInScene[e.id];
             TransformComponent& transform = scene.transformsInScene[e.id];
             material.shader.use();
-            material.shader.setMat4Uniform("projection", camera.projectionMatrix);
+            material.shader.setMat4Uniform("projection", scene.camera.projectionMatrix);
             if (scene.skyboxesInScene[e.id].isSkybox) {
-                glm::mat4 skyboxViewMatrix(glm::mat3(camera.viewMatrix));
+                glm::mat4 skyboxViewMatrix(glm::mat3(scene.camera.viewMatrix));
                 material.shader.setMat4Uniform("view", skyboxViewMatrix);
                 glDepthFunc(GL_LEQUAL);
             }
             else {
-                material.shader.setMat4Uniform("view", camera.viewMatrix);
+                material.shader.setMat4Uniform("view", scene.camera.viewMatrix);
                 material.shader.setMat4Uniform("model", transform.transform);
-                material.shader.setVec3Uniform("cameraPos", camera.Position);
+                material.shader.setVec3Uniform("cameraPos", scene.camera.Position);
             }
             glBindVertexArray(mesh.vao);
             for (int i = 0; i < material.textures.size(); i++) {

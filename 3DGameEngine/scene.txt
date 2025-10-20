@@ -1,8 +1,9 @@
 pointlight 0.0 1.0 0.0
+pointlight 10.0 2.0 -10.0
 entity skyboxSky
 pos 0 0 0
-entity cube
+entity cube 
 pos 0 0 0
-playerInputTank
+patrol 1 1 -1 10
 entity baseplate
 pos -20 0 20
