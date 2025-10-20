@@ -22,6 +22,7 @@ Application::Application()
     worldSpaceInputSystem(scene),
     tankInputSystem(scene),
     patrolSystem(scene),
+    collisionSystem(scene),
     inputDirection(glm::vec3(0.0f, 0.0f, 0.0f))
 {
     scene.camera.updateProjectionMatrix(window.width, window.height);
@@ -42,6 +43,7 @@ int Application::run() {
         worldSpaceInputSystem.updateVelocity(inputDirection);
         tankInputSystem.updateVelocity(inputDirection, deltaTime);
         patrolSystem.updateVelocity(deltaTime);
+        collisionSystem.updateVelocity(deltaTime);
         movementSystem.updateTransforms(deltaTime);
         renderSystem.renderScene(scene);
         glfwSwapBuffers(windowPtr);

@@ -40,6 +40,12 @@ struct PatrolComponent {
     float currentPatrolDistance = 0.0f;
 };
 
+struct CollisionComponent {
+    float minX = 0, maxX = 0;
+    float minY = 0, maxY = 0;
+    float minZ = 0, maxZ = 0;
+};
+
 // These need to change
 struct PlayerInputWorldTag {
     bool hasPlayerInputWorld;

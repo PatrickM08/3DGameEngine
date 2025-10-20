@@ -6,6 +6,7 @@
 #include "ecs.h"
 #include "entity.h"
 #include "movement_system.h"
+#include "collision_system.h"
 
 class Application {
 private:
@@ -22,6 +23,7 @@ private:
     TankInputSystem tankInputSystem;
     InputDirection inputDirection;
     PatrolSystem patrolSystem;
+    CollisionSystem collisionSystem;
 
 private:
     void handleEvent(const Event& event);

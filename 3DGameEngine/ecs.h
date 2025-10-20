@@ -69,8 +69,9 @@ struct EntityTemplate {
 
 class ECS {
 public:
-    ECS(AssetManager& am) {
-        assetManager = am;
+    ECS(AssetManager& am) 
+        : assetManager(am)
+    {
         transformsInScene.resize(MAX_ENTITIES);
         meshesInScene.resize(MAX_ENTITIES);
         materialsInScene.resize(MAX_ENTITIES);
@@ -83,6 +84,7 @@ public:
         speedsOfEntities.resize(MAX_ENTITIES);
         rotationSpeedsOfEntities.resize(MAX_ENTITIES);
         patrolEntities.resize(MAX_ENTITIES);
+        collisionEntities.resize(MAX_ENTITIES);
         entityTemplates.reserve(10);
         parseEntityTemplateFile();
         parseSceneFile();
@@ -250,6 +252,12 @@ public:
                 patrolEntities[entity.id].direction = glm::normalize(patrolEntities[entity.id].direction);
                 patrolEntities[entity.id].currentPatrolDistance = 0;
             }
+            else if (prefix == "collision") {
+                auto& entity = entitiesInScene.back();
+                stream >> collisionEntities[entity.id].minX >> collisionEntities[entity.id].maxX 
+                    >> collisionEntities[entity.id].minY >> collisionEntities[entity.id].maxY
+                    >> collisionEntities[entity.id].minZ >> collisionEntities[entity.id].maxZ;
+            }
             else if (prefix == "algo") {
                 auto& entity = entitiesInScene.back();
                 std::string algorithmName;
@@ -283,7 +291,7 @@ public:
     }
 
 public:
-    AssetManager assetManager;
+    AssetManager& assetManager;
     Camera camera;
     std::vector<TransformComponent> transformsInScene;
     std::vector<MeshData> meshesInScene;
@@ -297,6 +305,7 @@ public:
     std::vector<SpeedComponent> speedsOfEntities;
     std::vector<RotationSpeedComponent> rotationSpeedsOfEntities;
     std::vector<PatrolComponent> patrolEntities;
+    std::vector<CollisionComponent> collisionEntities;
     std::unordered_map<std::string, EntityTemplate> entityTemplates;
     std::vector<glm::vec3> pointLightPositions;
 };
