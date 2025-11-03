@@ -15,15 +15,33 @@ public:
 			TransformComponent& transform = scene.transformsInScene[entity.id];
 			CollisionComponent& boundingBox = scene.collisionEntities[entity.id];
 			VelocityComponent& velocity = scene.velocitiesOfEntities[entity.id];
+			glm::vec3 currentPos = glm::vec3(transform.transform[3]);
+			glm::vec3 adjustedVelocity = velocity.velocity;
 			for (int j = 0; j < scene.entitiesInScene.size(); j++) {
 				if (i != j) {
-					glm::vec3 futurePosition = glm::vec3(transform.transform[3]) + velocity.velocity * deltaTime;
 					glm::vec3 obstaclePos = glm::vec3(scene.transformsInScene[j].transform[3]);
-					if (collide(futurePosition, obstaclePos, boundingBox, scene.collisionEntities[j])) {
-						velocity.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+					CollisionComponent& obstacleBox = scene.collisionEntities[j];
+
+					// Test X axis
+					glm::vec3 testPos = currentPos + glm::vec3(adjustedVelocity.x, 0, 0) * deltaTime;
+					if (collide(testPos, obstaclePos, boundingBox, obstacleBox)) {
+						adjustedVelocity.x = 0.0f;
+					}
+
+					// Test Y axis
+					testPos = currentPos + glm::vec3(0, adjustedVelocity.y, 0) * deltaTime;
+					if (collide(testPos, obstaclePos, boundingBox, obstacleBox)) {
+						adjustedVelocity.y = 0.0f;
+					}
+
+					// Test Z axis
+					testPos = currentPos + glm::vec3(0, 0, adjustedVelocity.z) * deltaTime;
+					if (collide(testPos, obstaclePos, boundingBox, obstacleBox)) {
+						adjustedVelocity.z = 0.0f;
 					}
 				}
 			}
+			velocity.velocity = adjustedVelocity;
 		}
 	}
 

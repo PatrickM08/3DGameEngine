@@ -3,12 +3,12 @@ pointlight 0.0 1.0 0.0
 pointlight 10.0 2.0 -10.0
 entity skyboxSky
 pos 0 0 0
-entity cube 
-pos 0 0 0
-playerInputWorld
-collision -0.5 0.5 -0.5 0.5 -0.5 0.5
 entity cube
 pos 0 0 -5
+collision -0.5 0.5 -0.5 0.5 -0.5 0.5
+entity cube
+pos 0 0 -3
+playerInputWorld
 collision -0.5 0.5 -0.5 0.5 -0.5 0.5
 entity baseplate
 pos -20 0 20
