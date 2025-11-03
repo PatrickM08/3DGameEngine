@@ -10,6 +10,7 @@
 #include "shader_s.h"
 #include "camera.h"
 #include <cassert>
+#include "sparse_set.h"
 
 
 struct MeshHandleStorage {
@@ -20,7 +21,8 @@ struct MaterialHandleStorage {
     uint32_t materialHandle;
 };
 
-constexpr int MAX_ENTITIES = 100;
+
+uint32_t entityCount = 0;
 
 uint32_t nextComponentID = 0;
 
@@ -72,19 +74,7 @@ public:
     ECS(AssetManager& am) 
         : assetManager(am)
     {
-        transformsInScene.resize(MAX_ENTITIES);
-        meshesInScene.resize(MAX_ENTITIES);
-        materialsInScene.resize(MAX_ENTITIES);
-        entitiesInScene.reserve(MAX_ENTITIES);
-        skyboxesInScene.resize(MAX_ENTITIES);
-        instancedEntitiesInScene.resize(MAX_ENTITIES);
-        playerInputWorldEntities.resize(MAX_ENTITIES);
-        playerInputTankEntities.resize(MAX_ENTITIES);
-        velocitiesOfEntities.resize(MAX_ENTITIES);
-        speedsOfEntities.resize(MAX_ENTITIES);
-        rotationSpeedsOfEntities.resize(MAX_ENTITIES);
-        patrolEntities.resize(MAX_ENTITIES);
-        collisionEntities.resize(MAX_ENTITIES);
+        
         entityTemplates.reserve(10);
         parseEntityTemplateFile();
         parseSceneFile();
@@ -118,13 +108,15 @@ public:
                 MaterialHandleStorage handle{ materialHandle };
                 entityTemplates[entityName].components.emplace_back(handle);
             }
+            else if (prefix == "renderable") {
+                entityTemplates[entityName].components.emplace_back(RenderableTag{});
+            }
             else if (prefix == "transform") {
                 TransformComponent transform{ glm::mat4(1.0f), glm::quat_cast(glm::mat4(1.0f)) }; //This needs to be changed, or not could keep everything here until scene file
                 entityTemplates[entityName].components.emplace_back(transform);
             }
             else if (prefix == "skybox") {
-                SkyboxTag skyboxTag{ true };
-                entityTemplates[entityName].components.emplace_back(skyboxTag);
+                entityTemplates[entityName].components.emplace_back(SkyboxTag{});
             }
             else if (prefix == "velocity") {
                 VelocityComponent velocity{ glm::vec3(0.0f, 0.0f, 0.0f) };
@@ -151,7 +143,6 @@ public:
             throw std::runtime_error("Error opening scene file.");
         }
         std::string line;
-        uint32_t entityCount = 0;
         while (std::getline(file, line)) {
             std::istringstream stream(line);
             std::string prefix;
@@ -176,20 +167,18 @@ public:
                 pointLightPositions.push_back(pos);
             }
             else if (prefix == "entity") {
-                entitiesInScene.emplace_back(entityCount++);
-                auto& entity = entitiesInScene.back();
+                entityCount++;
                 std::string entityName;
                 stream >> entityName;
                 EntityTemplate& entityTemplate = entityTemplates[entityName];
                 for (auto& blob : entityTemplate.components) {
                     if (blob.typeID == getTypeID<MeshHandleStorage>()) {
                         auto& meshHandleStorage = deserializeBlob<MeshHandleStorage>(blob);
-                        meshesInScene[entity.id] = assetManager.getMesh(meshHandleStorage.meshHandle);
+                        meshSet.add(entityCount, assetManager.getMesh(meshHandleStorage.meshHandle));
                     }
                     else if (blob.typeID == getTypeID<MaterialHandleStorage>()) {
                         auto& materialHandleStorage = deserializeBlob<MaterialHandleStorage>(blob);
-                        materialsInScene[entity.id] = assetManager.getMaterial(materialHandleStorage.materialHandle);
-                        MaterialData& material = materialsInScene[entity.id];
+                        MaterialData& material = assetManager.getMaterial(materialHandleStorage.materialHandle);
                         material.shader.use();
                         for (int i = 0; i < material.textures.size(); i++) {
                             material.shader.setIntUniform("texture" + std::to_string(i), i);
@@ -208,58 +197,63 @@ public:
                             material.shader.setFloatUniform("pointLights[" + index + "].linear", 0.09f);
                             material.shader.setFloatUniform("pointLights[" + index + "].quadratic", 0.032f);
                         }
+
+                        materialSet.add(entityCount, material);
+                    }
+                    else if (blob.typeID == getTypeID<RenderableTag>()) {
+                        renderableSet.add(entityCount, RenderableTag{});
                     }
                     else if (blob.typeID == getTypeID<TransformComponent>()) {
                         auto& transformComponent = deserializeBlob<TransformComponent>(blob);
-                        transformsInScene[entity.id] = transformComponent;
+                        transformSet.add(entityCount, transformComponent);
                     }
                     else if (blob.typeID == getTypeID<SkyboxTag>()) {
                         auto& skyboxTag = deserializeBlob<SkyboxTag>(blob);
-                        skyboxesInScene[entity.id] = skyboxTag;
+                        skyboxSet.add(entityCount, skyboxTag);
                     }
                     else if (blob.typeID == getTypeID<VelocityComponent>()) {
                         auto& velocity = deserializeBlob<VelocityComponent>(blob);
-                        velocitiesOfEntities[entity.id] = velocity;
+                        velocitySet.add(entityCount, velocity);
                     }
                     else if (blob.typeID == getTypeID<SpeedComponent>()) {
                         auto& speed = deserializeBlob<SpeedComponent>(blob);
-                        speedsOfEntities[entity.id] = speed;
+                        speedSet.add(entityCount, speed);
                     }
                     else if (blob.typeID == getTypeID<RotationSpeedComponent>()) {
                         auto& rotSpeed = deserializeBlob<RotationSpeedComponent>(blob);
-                        rotationSpeedsOfEntities[entity.id] = rotSpeed;
+                        rotationSpeedSet.add(entityCount, rotSpeed);
                     }
                 }
             }
             else if (prefix == "pos") {
-                auto& entity = entitiesInScene.back();
                 glm::vec3 spawnPosition;
                 stream >> spawnPosition.x >> spawnPosition.y >> spawnPosition.z;
-                transformsInScene[entity.id].transform = glm::translate(transformsInScene[entity.id].transform, spawnPosition);
+                if (!transformSet.hasComponent(entityCount)) {
+                    transformSet.add(entityCount, TransformComponent{});
+                }
+                auto& transform = transformSet.getComponent(entityCount);
+                transform.transform = glm::translate(transform.transform, spawnPosition);
             }
             else if (prefix == "playerInputWorld") {
-                auto& entity = entitiesInScene.back();
-                playerInputWorldEntities[entity.id].hasPlayerInputWorld = true;
+                inputWorldSet.add(entityCount, PlayerInputWorldTag{});
             }
             else if (prefix == "playerInputTank") {
-                auto& entity = entitiesInScene.back();
-                playerInputTankEntities[entity.id].hasPlayerInputTank = true;
+                inputTankSet.add(entityCount, PlayerInputTankTag{});
             }
             else if (prefix == "patrol") {
-                auto& entity = entitiesInScene.back();
-                stream >> patrolEntities[entity.id].direction.x >> patrolEntities[entity.id].direction.y
-                    >> patrolEntities[entity.id].direction.z >> patrolEntities[entity.id].magnitude;
-                patrolEntities[entity.id].direction = glm::normalize(patrolEntities[entity.id].direction);
-                patrolEntities[entity.id].currentPatrolDistance = 0;
+                PatrolComponent patrol;
+                stream >> patrol.direction.x >> patrol.direction.y >> patrol.direction.z >> patrol.magnitude;
+                patrol.direction = glm::normalize(patrol.direction);
+                patrolSet.add(entityCount, patrol);
             }
             else if (prefix == "collision") {
-                auto& entity = entitiesInScene.back();
-                stream >> collisionEntities[entity.id].minX >> collisionEntities[entity.id].maxX 
-                    >> collisionEntities[entity.id].minY >> collisionEntities[entity.id].maxY
-                    >> collisionEntities[entity.id].minZ >> collisionEntities[entity.id].maxZ;
+                CollisionComponent collision;
+                stream >> collision.minX >> collision.maxX
+                    >> collision.minY >> collision.maxY
+                    >> collision.minZ >> collision.maxZ;
+                collisionSet.add(entityCount, collision);
             }
             else if (prefix == "algo") {
-                auto& entity = entitiesInScene.back();
                 std::string algorithmName;
                 stream >> algorithmName;
                 if (algorithmName == "grid") {
@@ -275,7 +269,7 @@ public:
                         }
                     }
 
-                    glBindVertexArray(meshesInScene[entity.id].vao);
+                    glBindVertexArray(meshSet.getComponent(entityCount).vao);
                     GLuint instanceVBO;
                     glGenBuffers(1, &instanceVBO);
                     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
@@ -284,7 +278,7 @@ public:
                     glEnableVertexAttribArray(3);
                     glVertexAttribDivisor(3, 1);
 
-                    instancedEntitiesInScene[entity.id] = InstancedTag{ NUM_BOXES };
+                    instancedSet.add(entityCount, InstancedComponent{ NUM_BOXES });
                 }
             }
         }
@@ -293,21 +287,23 @@ public:
 public:
     AssetManager& assetManager;
     Camera camera;
-    std::vector<TransformComponent> transformsInScene;
-    std::vector<MeshData> meshesInScene;
-    std::vector<MaterialData> materialsInScene;
-    std::vector<Entity> entitiesInScene;
-    std::vector<SkyboxTag> skyboxesInScene;
-    std::vector<InstancedTag> instancedEntitiesInScene;
-    std::vector<PlayerInputWorldTag> playerInputWorldEntities;
-    std::vector<PlayerInputTankTag> playerInputTankEntities;
-    std::vector<VelocityComponent> velocitiesOfEntities;
-    std::vector<SpeedComponent> speedsOfEntities;
-    std::vector<RotationSpeedComponent> rotationSpeedsOfEntities;
-    std::vector<PatrolComponent> patrolEntities;
-    std::vector<CollisionComponent> collisionEntities;
+    
     std::unordered_map<std::string, EntityTemplate> entityTemplates;
     std::vector<glm::vec3> pointLightPositions;
+
+    SparseSet<TransformComponent> transformSet;
+    SparseSet<MeshData> meshSet;
+    SparseSet<MaterialData> materialSet;
+    SparseSet<SkyboxTag> skyboxSet;
+    SparseSet<InstancedComponent> instancedSet;
+    SparseSet<PlayerInputWorldTag> inputWorldSet;
+    SparseSet<PlayerInputTankTag> inputTankSet;
+    SparseSet<VelocityComponent> velocitySet;
+    SparseSet<SpeedComponent> speedSet;
+    SparseSet<RotationSpeedComponent> rotationSpeedSet;
+    SparseSet<PatrolComponent> patrolSet;
+    SparseSet<CollisionComponent> collisionSet;
+    SparseSet<RenderableTag> renderableSet;
 };
 
 

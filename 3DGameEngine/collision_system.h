@@ -9,41 +9,47 @@ public:
 	{
 	}
 
-	void updateVelocity(float deltaTime) {
-		for (int i = 0; i < scene.entitiesInScene.size(); i++) {
-			Entity& entity = scene.entitiesInScene[i];
-			TransformComponent& transform = scene.transformsInScene[entity.id];
-			CollisionComponent& boundingBox = scene.collisionEntities[entity.id];
-			VelocityComponent& velocity = scene.velocitiesOfEntities[entity.id];
-			glm::vec3 currentPos = glm::vec3(transform.transform[3]);
-			glm::vec3 adjustedVelocity = velocity.velocity;
-			for (int j = 0; j < scene.entitiesInScene.size(); j++) {
-				if (i != j) {
-					glm::vec3 obstaclePos = glm::vec3(scene.transformsInScene[j].transform[3]);
-					CollisionComponent& obstacleBox = scene.collisionEntities[j];
+    void updateVelocity(float deltaTime) {
+        auto& collisionEntities = scene.collisionSet.getEntities();
+        uint32_t collisionSetSize = collisionEntities.size();
 
-					// Test X axis
-					glm::vec3 testPos = currentPos + glm::vec3(adjustedVelocity.x, 0, 0) * deltaTime;
-					if (collide(testPos, obstaclePos, boundingBox, obstacleBox)) {
-						adjustedVelocity.x = 0.0f;
-					}
+        for (uint32_t i = 0; i < collisionSetSize; i++) {
+            uint32_t entity = collisionEntities[i];
 
-					// Test Y axis
-					testPos = currentPos + glm::vec3(0, adjustedVelocity.y, 0) * deltaTime;
-					if (collide(testPos, obstaclePos, boundingBox, obstacleBox)) {
-						adjustedVelocity.y = 0.0f;
-					}
+            auto& transform = scene.transformSet.getComponent(entity);
+            auto& boundingBox = scene.collisionSet.getComponent(entity);
+            auto& velocity = scene.velocitySet.getComponent(entity);
 
-					// Test Z axis
-					testPos = currentPos + glm::vec3(0, 0, adjustedVelocity.z) * deltaTime;
-					if (collide(testPos, obstaclePos, boundingBox, obstacleBox)) {
-						adjustedVelocity.z = 0.0f;
-					}
-				}
-			}
-			velocity.velocity = adjustedVelocity;
-		}
-	}
+            glm::vec3 currentPos = glm::vec3(transform.transform[3]);
+            glm::vec3 adjustedVelocity = velocity.velocity;
+
+            for (uint32_t j = 0; j < collisionSetSize; j++) {
+                uint32_t obstacleEntity = collisionEntities[j];
+                if (entity != obstacleEntity) {
+                    glm::vec3 obstaclePos = glm::vec3(scene.transformSet.getComponent(obstacleEntity).transform[3]);
+                    CollisionComponent& obstacleBox = scene.collisionSet.getComponent(obstacleEntity);
+
+                    glm::vec3 testPos = currentPos + glm::vec3(adjustedVelocity.x, 0, 0) * deltaTime;
+                    if (collide(testPos, obstaclePos, boundingBox, obstacleBox)) {
+                        adjustedVelocity.x = 0.0f;
+                    }
+
+                    // Test Y axis
+                    testPos = currentPos + glm::vec3(0, adjustedVelocity.y, 0) * deltaTime;
+                    if (collide(testPos, obstaclePos, boundingBox, obstacleBox)) {
+                        adjustedVelocity.y = 0.0f;
+                    }
+
+                    // Test Z axis
+                    testPos = currentPos + glm::vec3(0, 0, adjustedVelocity.z) * deltaTime;
+                    if (collide(testPos, obstaclePos, boundingBox, obstacleBox)) {
+                        adjustedVelocity.z = 0.0f;
+                    }
+                }
+            }
+            velocity.velocity = adjustedVelocity;
+        }
+    }
 
 	bool collide(glm::vec3 futurePosition, glm::vec3 obstaclePos, CollisionComponent& box1, CollisionComponent& box2) {
 		if (box1.minX == 0 && box1.maxX == 0 && box1.minY == 0 &&

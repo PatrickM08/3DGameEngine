@@ -150,6 +150,7 @@
     <ClInclude Include="movement_system.h" />
     <ClInclude Include="render_system.h" />
     <ClInclude Include="shader_s.h" />
+    <ClInclude Include="sparse_set.h" />
     <ClInclude Include="text.hpp" />
     <ClInclude Include="window.h" />
   </ItemGroup>

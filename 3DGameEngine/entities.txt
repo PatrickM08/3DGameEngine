@@ -1,11 +1,13 @@
 entity skyboxSky
 mesh 2
 material 2
+renderable
 skybox
 
 entity cube
 mesh 1
 material 1
+renderable
 transform 0,0,0 0,0,0 1,1,1
 velocity
 speed 4
@@ -14,10 +16,12 @@ rotationSpeed 80
 entity baseplate
 mesh 0
 material 0
+renderable
 transform 0,0,0 0,0,0 1,1,1
 
 entity tree
 mesh 3
 material 0
+renderable
 transform 0,0,0 0,0,0 1,1,1
 

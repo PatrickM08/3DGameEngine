@@ -16,7 +16,7 @@ private:
 	static constexpr uint32_t INVALID_INDEX = UINT32_MAX;
 
 public:
-	bool hasComponent(uint32_t entityID) {
+	bool hasComponent(uint32_t entityID) const {
 		if (entityID >= sparse.size()) return false;
 		uint32_t denseIndex = sparse[entityID];
 		return denseIndex < dense.size() && entities[denseIndex] == entityID;
@@ -45,5 +45,9 @@ public:
 		sparse[entities[denseIndex]] = denseIndex;
 		dense.pop_back();
 		entities.pop_back();
+	}
+
+	const std::vector<uint32_t>& getEntities() const {
+		return entities;
 	}
 };

@@ -14,11 +14,11 @@ struct Entity {
 };
 
 struct TransformComponent {
-    glm::mat4 transform;
-    glm::quat rotation;
+    glm::mat4 transform = glm::mat4(1.0f);
+    glm::quat rotation = glm::quat(1, 0, 0, 0);
 };
 
-struct InstancedTag {
+struct InstancedComponent {
     uint32_t numberOfInstances = 0;
 };
 
@@ -46,15 +46,10 @@ struct CollisionComponent {
     float minZ = 0, maxZ = 0;
 };
 
-// These need to change
-struct PlayerInputWorldTag {
-    bool hasPlayerInputWorld;
-};
+struct RenderableTag {};
 
-struct PlayerInputTankTag {
-    bool hasPlayerInputTank;
-};
+struct PlayerInputWorldTag {};
 
-struct SkyboxTag {
-    bool isSkybox;
-};
+struct PlayerInputTankTag {};
+
+struct SkyboxTag {};

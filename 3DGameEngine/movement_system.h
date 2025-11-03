@@ -15,13 +15,12 @@ public:
 	}
 
 	void updateVelocity(InputDirection& dir){
-		for (Entity& entity : scene.entitiesInScene) {
-			if (scene.playerInputWorldEntities[entity.id].hasPlayerInputWorld) {
-				if (dir.direction != glm::vec3(0.0f, 0.0f, 0.0f)) {
-					dir.direction = glm::normalize(dir.direction);
-				}
-				scene.velocitiesOfEntities[entity.id].velocity = dir.direction * scene.speedsOfEntities[entity.id].speed;
+		for (uint32_t entity : scene.inputWorldSet.getEntities()) {
+			if (dir.direction != glm::vec3(0.0f, 0.0f, 0.0f)) {
+				dir.direction = glm::normalize(dir.direction);
 			}
+			// Should make sure the entity has a velocity and speed component before performing this.
+			scene.velocitySet.getComponent(entity).velocity = dir.direction * scene.speedSet.getComponent(entity).speed;
 		}
 	}
 
@@ -37,15 +36,15 @@ public:
 	}
 
 	void updateVelocity(InputDirection& dir, float deltaTime) {
-		for (Entity& entity : scene.entitiesInScene) {
-			if (scene.playerInputTankEntities[entity.id].hasPlayerInputTank) {
-
-				scene.transformsInScene[entity.id].rotation = glm::angleAxis(glm::radians(scene.rotationSpeedsOfEntities[entity.id]
-					.rotationSpeed) * -1 * dir.direction.x * deltaTime, glm::vec3(0, 1, 0)) * 
-					scene.transformsInScene[entity.id].rotation;
-				glm::vec3 forward = scene.transformsInScene[entity.id].rotation * glm::vec3(0.0f, 0.0f, 1.0f);
-				scene.velocitiesOfEntities[entity.id].velocity = dir.direction.z * forward * scene.speedsOfEntities[entity.id].speed;
-			}
+		for (uint32_t entity : scene.inputTankSet.getEntities()) {
+			auto& transform = scene.transformSet.getComponent(entity);
+			auto& rotationSpeed = scene.rotationSpeedSet.getComponent(entity);
+			auto& velocity = scene.velocitySet.getComponent(entity);
+			auto& speed = scene.speedSet.getComponent(entity);
+			transform.rotation = glm::angleAxis(glm::radians(rotationSpeed.rotationSpeed) * -1 * dir.direction.x * deltaTime, 
+				glm::vec3(0, 1, 0)) * transform.rotation;
+			glm::vec3 forward = transform.rotation * glm::vec3(0.0f, 0.0f, 1.0f);
+			velocity.velocity = dir.direction.z * forward * speed.speed;
 		}
 	}
 
@@ -61,10 +60,10 @@ public:
 	}
 
 	void updateVelocity(float deltaTime) {
-		for (Entity& entity : scene.entitiesInScene) {
-			PatrolComponent& patrol = scene.patrolEntities[entity.id];
-			SpeedComponent& speed = scene.speedsOfEntities[entity.id];
-			VelocityComponent& velocity = scene.velocitiesOfEntities[entity.id];
+		for (uint32_t entity : scene.patrolSet.getEntities()) {
+			auto& patrol = scene.patrolSet.getComponent(entity);
+			auto& speed = scene.speedSet.getComponent(entity);
+			auto& velocity = scene.velocitySet.getComponent(entity);
 			if (patrol.magnitude != 0) {
 				if (patrol.currentPatrolDistance < patrol.magnitude) {
 					velocity.velocity = patrol.direction * speed.speed;
@@ -91,9 +90,9 @@ public:
 	}
 
 	void updateTransforms(float deltaTime) {
-		for (Entity& entity : scene.entitiesInScene) {
-			auto& transform = scene.transformsInScene[entity.id];
-			auto& velocity = scene.velocitiesOfEntities[entity.id];
+		for (uint32_t entity : scene.velocitySet.getEntities()) {
+			auto& transform = scene.transformSet.getComponent(entity);
+			auto& velocity = scene.velocitySet.getComponent(entity);
 
 			glm::vec3 position = glm::vec3(transform.transform[3]);
 			position += velocity.velocity * deltaTime;

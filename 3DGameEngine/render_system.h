@@ -39,13 +39,13 @@ public:
     void renderScene(ECS& scene) {
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.buffer);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        for (Entity e : scene.entitiesInScene) {
-            MaterialData& material = scene.materialsInScene[e.id];
-            MeshData& mesh = scene.meshesInScene[e.id];
-            TransformComponent& transform = scene.transformsInScene[e.id];
+        for (uint32_t entity: scene.renderableSet.getEntities()) {
+            MaterialData& material = scene.materialSet.getComponent(entity);
+            MeshData& mesh = scene.meshSet.getComponent(entity);
+            TransformComponent& transform = scene.transformSet.getComponent(entity);
             material.shader.use();
             material.shader.setMat4Uniform("projection", scene.camera.projectionMatrix);
-            if (scene.skyboxesInScene[e.id].isSkybox) {
+            if (scene.skyboxSet.hasComponent(entity)) {
                 glm::mat4 skyboxViewMatrix(glm::mat3(scene.camera.viewMatrix));
                 material.shader.setMat4Uniform("view", skyboxViewMatrix);
                 glDepthFunc(GL_LEQUAL);
@@ -60,11 +60,11 @@ public:
                 glActiveTexture(GL_TEXTURE0 + i);
                 glBindTexture(material.textures[i].target, material.textures[i].id);
             }
-            if (scene.instancedEntitiesInScene[e.id].numberOfInstances == 0) {
+            if (!scene.instancedSet.hasComponent(entity)) {
                 glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
             }
             else {
-                glDrawArraysInstanced(GL_TRIANGLES, 0, mesh.vertexCount, scene.instancedEntitiesInScene[e.id].numberOfInstances);
+                glDrawArraysInstanced(GL_TRIANGLES, 0, mesh.vertexCount, scene.instancedSet.getComponent(entity).numberOfInstances);
             }
             glDepthFunc(GL_LESS);
         } 
