@@ -134,7 +134,11 @@
     <ClCompile Include="..\..\..\Documents\Libraries\glad\src\glad.c" />
     <ClCompile Include="application.cpp" />
     <ClCompile Include="asset_manager.cpp" />
+    <ClCompile Include="collision_system.cpp" />
+    <ClCompile Include="ecs.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="movement_system.cpp" />
+    <ClCompile Include="render_system.cpp" />
     <ClCompile Include="stb_setup.cpp" />
     <ClCompile Include="text.cpp" />
     <ClCompile Include="window.cpp" />
