@@ -2,7 +2,6 @@
 #include "Window.h" 
 #include "render_system.h"
 #include "camera.h"
-#include "asset_manager.h"
 #include "ecs.h"
 #include "entity.h"
 #include "movement_system.h"
@@ -16,7 +15,6 @@ private:
     bool firstMouse;
     float lastX, lastY;
     float deltaTime, lastFrame;
-    AssetManager assetManager;
     ECS scene;
     MovementSystem movementSystem;
     WorldSpaceInputSystem worldSpaceInputSystem;
@@ -26,7 +24,7 @@ private:
     CollisionSystem collisionSystem;
 
 private:
-    void handleEvent(const Event& event);
+    void handleWindowEvent(const Event& event);
     void handleKeyInput();
     void updateTiming();
 

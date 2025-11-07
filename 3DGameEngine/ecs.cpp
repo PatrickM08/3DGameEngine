@@ -9,15 +9,14 @@
 #include <sstream>
 #include <algorithm>
 #include <stdexcept>
+#include "camera.h"
 
 
 ComponentBlob::ComponentBlob(ComponentBlob&& other) noexcept
     : typeInfo(other.typeInfo), size(other.size), data(std::move(other.data)) {
 }
 
-ECS::ECS(AssetManager& am)
-    : assetManager(am)
-{
+ECS::ECS() {
     entityCount = 0;
     entityTemplates.reserve(10);
     parseEntityTemplateFile();
@@ -91,21 +90,7 @@ void ECS::parseSceneFile() {
         std::istringstream stream(line);
         std::string prefix;
         stream >> prefix;
-        if (prefix == "camera") {
-            std::string type;
-            std::string restOfLine;
-            std::getline(stream, restOfLine);
-            std::replace(restOfLine.begin(), restOfLine.end(), ',', ' ');
-            std::istringstream cameraStream(restOfLine);
-            cameraStream >> type >> camera.Position.x >> camera.Position.y >> camera.Position.z >> camera.WorldUp.x
-                >> camera.WorldUp.y >> camera.WorldUp.z >> camera.Yaw >> camera.Pitch;
-            CameraType cameraType = CameraType::FIRSTPERSON;
-            if (type == "first") cameraType = CameraType::FIRSTPERSON;
-            else if (type == "fixed") cameraType = CameraType::FIXED;
-            camera.cameraType = cameraType;
-            camera.updateCameraVectors();
-        }
-        else if (prefix == "pointlight") {
+        if (prefix == "pointlight") {
             glm::vec3 pos;
             stream >> pos.x >> pos.y >> pos.z;
             pointLightPositions.push_back(pos);
@@ -196,6 +181,23 @@ void ECS::parseSceneFile() {
                 >> collision.minY >> collision.maxY
                 >> collision.minZ >> collision.maxZ;
             collisionSet.add(entityCount, collision);
+        }
+        else if (prefix == "camera") {
+            std::string type;
+            std::string restOfLine;
+            std::getline(stream, restOfLine);
+            std::replace(restOfLine.begin(), restOfLine.end(), ',', ' ');
+            std::istringstream cameraStream(restOfLine);
+            CameraComponent camera;
+            cameraStream >> type >> camera.positionOffset.x >> camera.positionOffset.y >> camera.positionOffset.z >> camera.worldUp.x
+                >> camera.worldUp.y >> camera.worldUp.z >> camera.yaw >> camera.pitch;
+            camera.position = glm::vec3(transformSet.getComponent(entityCount).transform[3]) + camera.positionOffset;
+            CameraType cameraType = CameraType::FIXED;
+            if (type == "mouse") cameraType = CameraType::MOUSETURN;
+            else if (type == "fixed") cameraType = CameraType::FIXED;
+            camera.cameraType = cameraType;
+            updateCameraVectors(camera);
+            cameraSet.add(entityCount, camera);
         }
         else if (prefix == "algo") {
             std::string algorithmName;

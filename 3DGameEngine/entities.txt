@@ -4,6 +4,15 @@ material 2
 renderable
 skybox
 
+entity cubeBlank
+mesh 1
+material 0
+renderable
+transform 0,0,0 0,0,0 1,1,1
+velocity
+speed 4
+rotationSpeed 80
+
 entity cube
 mesh 1
 material 1
@@ -25,3 +34,7 @@ material 0
 renderable
 transform 0,0,0 0,0,0 1,1,1
 
+entity camera
+mesh 1
+material 
+transform 0,0,0 0,0,0 1,1,1

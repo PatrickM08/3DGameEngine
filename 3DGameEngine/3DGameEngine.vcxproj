@@ -134,6 +134,7 @@
     <ClCompile Include="..\..\..\Documents\Libraries\glad\src\glad.c" />
     <ClCompile Include="application.cpp" />
     <ClCompile Include="asset_manager.cpp" />
+    <ClCompile Include="camera.cpp" />
     <ClCompile Include="collision_system.cpp" />
     <ClCompile Include="ecs.cpp" />
     <ClCompile Include="main.cpp" />
@@ -183,6 +184,7 @@
     <Image Include="skybox\left.jpg" />
     <Image Include="skybox\right.jpg" />
     <Image Include="skybox\top.jpg" />
+    <Image Include="tile.jpg" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="entities.txt" />

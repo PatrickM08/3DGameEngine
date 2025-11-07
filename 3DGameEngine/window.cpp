@@ -45,7 +45,6 @@ Window::Window(uint32_t width, uint32_t height, const char* title)
         glfwTerminate();
         throw std::runtime_error("Failed to initialize GLAD");
     }
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glViewport(0, 0, width, height);
 }
 

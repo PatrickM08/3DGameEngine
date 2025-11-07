@@ -1,11 +1,11 @@
 #include "Application.h"
-#include "asset_manager.h"
 #include "render_system.h"
 #include "ecs.h"
 #include "movement_system.h"
 #include "camera.h"
 #include <iostream>
-
+#include "entity.h"
+#include "sparse_set.h"
 
 
 Application::Application()
@@ -17,7 +17,7 @@ Application::Application()
     lastY(0.0f),
     deltaTime(0.0f),
     lastFrame(0.0f),
-    scene(assetManager),
+    scene(),
     movementSystem(scene),
     worldSpaceInputSystem(scene),
     tankInputSystem(scene),
@@ -25,7 +25,6 @@ Application::Application()
     collisionSystem(scene),
     inputDirection(glm::vec3(0.0f, 0.0f, 0.0f))
 {
-    scene.camera.updateProjectionMatrix(window.width, window.height);
 }
 
 int Application::run() {
@@ -34,36 +33,51 @@ int Application::run() {
 
         handleKeyInput();
         window.processEvents();
+
         Event event;
         while (window.pollEvent(event)) {
-            handleEvent(event);
+            handleWindowEvent(event);
         }
-        scene.camera.updateViewMatrix();
 
+        // Fetch current camera
+        if (scene.cameraSet.getEntities().empty()) {
+            std::cerr << "[ERROR] No camera found in scene!\n";
+            return -1;
+        }
+
+        uint32_t camEntity = scene.cameraSet.getEntities()[0];
+        CameraComponent& camera = scene.cameraSet.getComponent(camEntity);
+        updateProjectionMatrix(camera, window.width, window.height);
+
+        // Update systems
         worldSpaceInputSystem.updateVelocity(inputDirection);
         tankInputSystem.updateVelocity(inputDirection, deltaTime);
         patrolSystem.updateVelocity(deltaTime);
         collisionSystem.updateVelocity(deltaTime);
         movementSystem.updateTransforms(deltaTime);
         renderSystem.renderScene(scene);
+
         glfwSwapBuffers(windowPtr);
     }
     return 0;
 }
 
-void Application::handleEvent(const Event& event) {
+
+void Application::handleWindowEvent(const Event& event) {
+    if (scene.cameraSet.getEntities().empty()) return;
+    CameraComponent& camera = scene.cameraSet.getComponent(scene.cameraSet.getEntities()[0]);
+
     switch (event.type) {
     case EventType::WindowResize: {
         glViewport(0, 0, event.resize.width, event.resize.height);
         window.width = event.resize.width;
         window.height = event.resize.height;
-        scene.camera.updateProjectionMatrix(window.width, window.height);
+        updateProjectionMatrix(camera, window.width, window.height);
         break;
     }
 
     case EventType::MouseMove: {
-        if (firstMouse)
-        {
+        if (firstMouse) {
             lastX = event.mouseMove.xPos;
             lastY = event.mouseMove.yPos;
             firstMouse = false;
@@ -75,11 +89,11 @@ void Application::handleEvent(const Event& event) {
         lastX = event.mouseMove.xPos;
         lastY = event.mouseMove.yPos;
 
-        scene.camera.ProcessMouseMovement(xoffset, yoffset);
+        processMouseMovement(camera, xoffset, yoffset);
         break;
     }
     case EventType::Scroll: {
-        scene.camera.ProcessMouseScroll(event.scroll.yOffset);
+        processMouseScroll(camera, event.scroll.yOffset);
         break;
     }
     }
@@ -89,22 +103,14 @@ void Application::handleKeyInput() {
     inputDirection.direction = glm::vec3(0.0f, 0.0f, 0.0f);
     if (glfwGetKey(windowPtr, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(windowPtr, true);
-    if (glfwGetKey(windowPtr, GLFW_KEY_W) == GLFW_PRESS) {
-        scene.camera.ProcessKeyboard(FORWARD, deltaTime);
+    if (glfwGetKey(windowPtr, GLFW_KEY_W) == GLFW_PRESS)
         inputDirection.direction += glm::vec3(0.0f, 0.0f, -1.0f);
-    }
-    if (glfwGetKey(windowPtr, GLFW_KEY_S) == GLFW_PRESS) {
-        scene.camera.ProcessKeyboard(BACKWARD, deltaTime);
+    if (glfwGetKey(windowPtr, GLFW_KEY_S) == GLFW_PRESS)
         inputDirection.direction += glm::vec3(0.0f, 0.0f, 1.0f);
-    }
-    if (glfwGetKey(windowPtr, GLFW_KEY_A) == GLFW_PRESS) {
-        scene.camera.ProcessKeyboard(LEFT, deltaTime);
+    if (glfwGetKey(windowPtr, GLFW_KEY_A) == GLFW_PRESS)
         inputDirection.direction += glm::vec3(-1.0f, 0.0f, 0.0f);
-    }
-    if (glfwGetKey(windowPtr, GLFW_KEY_D) == GLFW_PRESS) {
-        scene.camera.ProcessKeyboard(RIGHT, deltaTime);
+    if (glfwGetKey(windowPtr, GLFW_KEY_D) == GLFW_PRESS)
         inputDirection.direction += glm::vec3(1.0f, 0.0f, 0.0f);
-    }
 }
 
 void Application::updateTiming() {
@@ -115,5 +121,5 @@ void Application::updateTiming() {
 
 int main() {
     Application app;
-    app.run();
+    return app.run();
 }

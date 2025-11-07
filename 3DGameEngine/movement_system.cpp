@@ -83,5 +83,10 @@ void MovementSystem::updateTransforms(float deltaTime) {
 
 		transform.transform = glm::translate(glm::mat4(1.0f), position)
 			* glm::mat4_cast(transform.rotation);
+		if (scene.cameraSet.hasComponent(entity)) {
+			CameraComponent& camera = scene.cameraSet.getComponent(entity);
+			updateCameraPosition(camera, position);
+			updateViewMatrix(camera);
+		}
 	}
 }

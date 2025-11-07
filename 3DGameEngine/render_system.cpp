@@ -28,21 +28,22 @@ RenderSystem::RenderSystem(Window& window)
 void RenderSystem::renderScene(ECS& scene) {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.buffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    CameraComponent& camera = scene.cameraSet.getComponent(scene.cameraSet.getEntities()[0]);
     for (uint32_t entity : scene.renderableSet.getEntities()) {
         MaterialData& material = scene.materialSet.getComponent(entity);
         MeshData& mesh = scene.meshSet.getComponent(entity);
         TransformComponent& transform = scene.transformSet.getComponent(entity);
         material.shader.use();
-        material.shader.setMat4Uniform("projection", scene.camera.projectionMatrix);
+        material.shader.setMat4Uniform("projection", camera.projectionMatrix);
         if (scene.skyboxSet.hasComponent(entity)) {
-            glm::mat4 skyboxViewMatrix(glm::mat3(scene.camera.viewMatrix));
+            glm::mat4 skyboxViewMatrix(glm::mat3(camera.viewMatrix));
             material.shader.setMat4Uniform("view", skyboxViewMatrix);
             glDepthFunc(GL_LEQUAL);
         }
         else {
-            material.shader.setMat4Uniform("view", scene.camera.viewMatrix);
+            material.shader.setMat4Uniform("view", camera.viewMatrix);
             material.shader.setMat4Uniform("model", transform.transform);
-            material.shader.setVec3Uniform("cameraPos", scene.camera.Position);
+            material.shader.setVec3Uniform("cameraPos", camera.position);
         }
         glBindVertexArray(mesh.vao);
         for (int i = 0; i < material.textures.size(); i++) {

@@ -1,14 +1,14 @@
-camera fixed 0,10,10 0,1,0 -90 -45 
 pointlight 0.0 1.0 0.0
 pointlight 10.0 2.0 -10.0
 entity skyboxSky
 pos 0 0 0
-entity cube
+entity cubeBlank
 pos 0 0 -5
-collision -0.5 0.5 -0.5 0.5 -0.5 0.5
+
 entity cube
-pos 0 0 -3
+pos 10 0 -5
 playerInputWorld
-collision -0.5 0.5 -0.5 0.5 -0.5 0.5
+camera fixed 0,10,10 0,1,0 -90 -45
+
 entity baseplate
 pos -20 0 20

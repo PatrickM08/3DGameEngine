@@ -58,13 +58,12 @@ struct EntityTemplate {
 
 class ECS {
 public:
-    ECS(AssetManager& am);
+    ECS();
 
     void parseEntityTemplateFile();
     void parseSceneFile();
 
-    AssetManager& assetManager;
-    Camera camera;
+    AssetManager assetManager;
 
     std::unordered_map<std::string, EntityTemplate> entityTemplates;
     std::vector<glm::vec3> pointLightPositions;
@@ -83,4 +82,5 @@ public:
     SparseSet<PatrolComponent> patrolSet;
     SparseSet<CollisionComponent> collisionSet;
     SparseSet<RenderableTag> renderableSet;
+    SparseSet<CameraComponent> cameraSet;
 };
