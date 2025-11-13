@@ -137,7 +137,6 @@
     <ClCompile Include="camera.cpp" />
     <ClCompile Include="collision_system.cpp" />
     <ClCompile Include="ecs.cpp" />
-    <ClCompile Include="main.cpp" />
     <ClCompile Include="movement_system.cpp" />
     <ClCompile Include="render_system.cpp" />
     <ClCompile Include="stb_setup.cpp" />
