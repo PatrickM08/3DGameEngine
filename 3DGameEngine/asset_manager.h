@@ -34,10 +34,9 @@ private:
 	std::vector<MaterialData> materials;
 
 private:
-	std::vector<MeshData> loadMeshes(const char* path);
+	std::vector<MeshData> loadMeshes(const char*);
 	std::vector<MaterialData> loadMaterials(const char* path);
-	void initVertexAttributes(bool hasTexCoords, bool hasNormals);
-	std::vector<float> parseOBJFile(const char* path, uint32_t& vertexCount, bool& hasTexCoords, bool& hasNormals);
+	std::vector<float> parseOBJFile(const std::string& path, uint32_t& vertexCount);
 	GLuint loadTexture(char const* path);
 	GLuint loadCubemap(const std::vector<std::string>& faces);
 

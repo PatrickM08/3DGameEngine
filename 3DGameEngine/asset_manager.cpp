@@ -8,7 +8,81 @@
 #include <GLFW/glfw3.h>
 #include "stb_image.h"
 #include <iostream>
+#include "tiny_obj_loader.h"
 
+
+std::vector<float> AssetManager::parseOBJFile(const std::string& path, uint32_t& vertexCount) {
+    tinyobj::ObjReader reader;
+    std::vector<float> vertices;
+
+    if (!reader.ParseFromFile(path)) {
+        if (!reader.Error().empty()) {
+            std::cerr << "TinyObjReader: " << reader.Error();
+        }
+        exit(1);
+    }
+
+    if (!reader.Warning().empty()) {
+        std::cout << "TinyObjReader: " << reader.Warning();
+    }
+
+    auto& attrib = reader.GetAttrib();
+    auto& shapes = reader.GetShapes();
+
+    // Loop over shapes
+    for (size_t s = 0; s < shapes.size(); s++) {
+        // Loop over faces(polygon)
+        size_t index_offset = 0;
+        for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
+            size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+            
+            // Loop over vertices in the face.
+            for (size_t v = 0; v < fv; v++) {
+                // access to vertex
+                tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
+                tinyobj::real_t vx = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
+                tinyobj::real_t vy = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
+                tinyobj::real_t vz = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
+                vertices.insert(vertices.end(), { vx, vy, vz });
+                vertexCount++;
+
+                // Check if `normal_index` is zero or positive. negative = no normal data
+                if (idx.normal_index >= 0) {
+                    tinyobj::real_t nx = attrib.normals[3 * size_t(idx.normal_index) + 0];
+                    tinyobj::real_t ny = attrib.normals[3 * size_t(idx.normal_index) + 1];
+                    tinyobj::real_t nz = attrib.normals[3 * size_t(idx.normal_index) + 2];
+                    vertices.insert(vertices.end(), { nx, ny, nz });
+                }
+                else {
+                    vertices.insert(vertices.end(), { 0, 1, 0 });
+                }
+
+                // Check if `texcoord_index` is zero or positive. negative = no texcoord data
+                if (idx.texcoord_index >= 0) {
+                    tinyobj::real_t tx = attrib.texcoords[2 * size_t(idx.texcoord_index) + 0];
+                    tinyobj::real_t ty = attrib.texcoords[2 * size_t(idx.texcoord_index) + 1];
+                    vertices.insert(vertices.end(), { tx, ty});
+                }
+                else {
+                    vertices.insert(vertices.end(), { 0,0 });
+                }
+            }
+            index_offset += fv;
+        }
+    }
+    int count = 0;
+    for (float i : vertices) {
+        if (count % 8 == 0) {
+            std::cout << "\n";
+        }
+        std::cout << i << " ";
+        count++;
+    }
+    std::cout << std::endl;
+    return vertices;
+}
+
+/*
 std::vector<float> AssetManager::parseOBJFile(const char* path, uint32_t& vertexCount, bool& hasTexCoords, bool& hasNormals) {
     bool onlyPos = true;
     std::vector<float> meshData;
@@ -79,6 +153,7 @@ std::vector<float> AssetManager::parseOBJFile(const char* path, uint32_t& vertex
     }
     return meshData;
 }
+*/
 
 AssetManager::AssetManager() : meshes(loadMeshes("meshes.txt")), materials(loadMaterials("materials.txt")) {}
 
@@ -103,16 +178,23 @@ std::vector<MeshData> AssetManager::loadMeshes(const char* path) {
         else if (drawUsageString == "GL_STREAM_DRAW") drawUsage = GL_STREAM_DRAW;
         else if (drawUsageString == "GL_STATIC_DRAW") drawUsage = GL_STATIC_DRAW;
         uint32_t vertexCount = 0;
-        bool hasTexCoords = false;
-        bool hasNormals = false;
-        std::vector<float> vertices = parseOBJFile(objPath.c_str(), vertexCount, hasTexCoords, hasNormals);
+        std::vector<float> vertices = parseOBJFile(objPath, vertexCount);
         GLuint VAO, VBO;
         glGenVertexArrays(1, &VAO);
         glGenBuffers(1, &VBO);
         glBindVertexArray(VAO);
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), drawUsage);
-        initVertexAttributes(hasTexCoords, hasNormals);
+        // The vertex format for static mesh vertex buffers is standardised (vx,vy,vz,nx,ny,nz,tx,ty)
+        size_t vertexAttribStride = 8 * sizeof(float);  
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, vertexAttribStride, (void*)0);
+        glEnableVertexAttribArray(0);
+        size_t normalsOffset = 3 * sizeof(float);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, vertexAttribStride, (void*)normalsOffset);
+        glEnableVertexAttribArray(1);
+        size_t texCoordsOffset = 6 * sizeof(float);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, vertexAttribStride, (void*)texCoordsOffset);
+        glEnableVertexAttribArray(2);
         meshes.emplace_back();
         auto& mesh = meshes.back();
         mesh.handle = meshHandle;
@@ -120,25 +202,6 @@ std::vector<MeshData> AssetManager::loadMeshes(const char* path) {
         mesh.vertexCount = vertexCount;
 	}
     return meshes;
-} 
-
-void AssetManager::initVertexAttributes(bool hasTexCoords, bool hasNormals) {
-    size_t stride = (3 + (hasTexCoords ? 2 : 0) + (hasNormals ? 3 : 0)) * sizeof(float);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
-    glEnableVertexAttribArray(0);
-
-    size_t offset = 3 * sizeof(float);
-
-    if (hasTexCoords) {
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)offset);
-        glEnableVertexAttribArray(1);
-        offset += 2 * sizeof(float);
-    }
-
-    if (hasNormals) {
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
-        glEnableVertexAttribArray(2);
-    }
 }
 
 

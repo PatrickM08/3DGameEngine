@@ -141,6 +141,7 @@
     <ClCompile Include="render_system.cpp" />
     <ClCompile Include="stb_setup.cpp" />
     <ClCompile Include="text.cpp" />
+    <ClCompile Include="tiny_object_loader_implementation.cpp" />
     <ClCompile Include="window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -156,6 +157,7 @@
     <ClInclude Include="shader_s.h" />
     <ClInclude Include="sparse_set.h" />
     <ClInclude Include="text.hpp" />
+    <ClInclude Include="tiny_obj_loader.h" />
     <ClInclude Include="window.h" />
   </ItemGroup>
   <ItemGroup>
