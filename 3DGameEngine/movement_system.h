@@ -9,7 +9,7 @@ struct InputDirection {
 class WorldSpaceInputSystem {
 public:
 	WorldSpaceInputSystem(ECS& scene);
-	void updateVelocity(InputDirection& dir);
+	void updateVelocity(InputDirection dir);
 
 private:
 	ECS& scene;
@@ -18,8 +18,16 @@ private:
 class TankInputSystem {
 public:
 	TankInputSystem(ECS& scene);
-	void updateVelocity(InputDirection& dir, float deltaTime);
+	void updateVelocity(InputDirection dir, float deltaTime);
 
+private:
+	ECS& scene;
+};
+
+class NoClipInputSystem {
+public:
+	NoClipInputSystem(ECS& scene);
+	void updateVelocity(InputDirection dir, glm::vec3 front, glm::vec3 right);
 private:
 	ECS& scene;
 };

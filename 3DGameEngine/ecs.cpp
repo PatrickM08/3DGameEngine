@@ -169,6 +169,9 @@ void ECS::parseSceneFile() {
         else if (prefix == "playerInputTank") {
             inputTankSet.add(entityCount, PlayerInputTankTag{});
         }
+        else if (prefix == "noClip") {
+            inputNoClipSet.add(entityCount, PlayerInputNoClipTag{});
+        }
         else if (prefix == "patrol") {
             PatrolComponent patrol;
             stream >> patrol.direction.x >> patrol.direction.y >> patrol.direction.z >> patrol.magnitude;

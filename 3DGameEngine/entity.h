@@ -52,4 +52,6 @@ struct PlayerInputWorldTag {};
 
 struct PlayerInputTankTag {};
 
+struct PlayerInputNoClipTag {};
+
 struct SkyboxTag {};

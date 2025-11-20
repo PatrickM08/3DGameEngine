@@ -21,6 +21,7 @@ Application::Application()
     movementSystem(scene),
     worldSpaceInputSystem(scene),
     tankInputSystem(scene),
+    noClipInputSystem(scene),
     patrolSystem(scene),
     collisionSystem(scene),
     inputDirection(glm::vec3(0.0f, 0.0f, 0.0f))
@@ -47,11 +48,14 @@ int Application::run() {
 
         uint32_t camEntity = scene.cameraSet.getEntities()[0];
         CameraComponent& camera = scene.cameraSet.getComponent(camEntity);
+        // Could be optimised
         updateProjectionMatrix(camera, window.width, window.height);
+        updateViewMatrix(camera);
 
         // Update systems
         worldSpaceInputSystem.updateVelocity(inputDirection);
         tankInputSystem.updateVelocity(inputDirection, deltaTime);
+        noClipInputSystem.updateVelocity(inputDirection, camera.front, camera.right);
         patrolSystem.updateVelocity(deltaTime);
         collisionSystem.updateVelocity(deltaTime);
         movementSystem.updateTransforms(deltaTime);

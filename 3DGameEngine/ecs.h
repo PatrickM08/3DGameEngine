@@ -76,6 +76,7 @@ public:
     SparseSet<InstancedComponent> instancedSet;
     SparseSet<PlayerInputWorldTag> inputWorldSet;
     SparseSet<PlayerInputTankTag> inputTankSet;
+    SparseSet<PlayerInputNoClipTag> inputNoClipSet;
     SparseSet<VelocityComponent> velocitySet;
     SparseSet<SpeedComponent> speedSet;
     SparseSet<RotationSpeedComponent> rotationSpeedSet;

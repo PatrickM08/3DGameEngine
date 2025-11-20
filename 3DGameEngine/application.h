@@ -19,6 +19,7 @@ private:
     MovementSystem movementSystem;
     WorldSpaceInputSystem worldSpaceInputSystem;
     TankInputSystem tankInputSystem;
+    NoClipInputSystem noClipInputSystem;
     InputDirection inputDirection;
     PatrolSystem patrolSystem;
     CollisionSystem collisionSystem;
