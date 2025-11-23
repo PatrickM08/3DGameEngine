@@ -2,6 +2,7 @@
 #include <vector>
 #include <cstdint>
 #include <memory>
+#include <algorithm>
 
 // GET AND REMOVE BOTH ASSUME THAT HAS WILL BE CALLED FIRST, IT IS THE RESPONSIBILITY OF THE CALLER
 // (the idea is getComponent and remove may be called in succession so we wouldn't want a redundant hasComponent check)
@@ -47,8 +48,8 @@ public:
 		uint32_t denseLast = dense.size() - 1;
 		uint32_t entitiesLast = entities[denseLast];
 		dense[denseIndex] = dense[denseLast];
-		entities[denseIndex] = entities[denseLast];
-		sparse[entities[denseIndex]] = denseIndex;
+		entities[denseIndex] = entitiesLast;
+		sparse[entitiesLast] = denseIndex;
 		dense.pop_back();
 		entities.pop_back();
 	}
@@ -59,16 +60,16 @@ public:
 };
 
 inline const uint32_t PAGE_SIZE = 512;
-struct Page {
+struct SparseSetPage {
     uint32_t data[PAGE_SIZE];
-    Page() { std::fill(std::begin(data), std::end(data), UINT32_MAX); } // Required due to possible garbage data access
+    SparseSetPage() { std::fill(std::begin(data), std::end(data), UINT32_MAX); } // Required due to possible garbage data access
 };
 
 // PAGED SHOULD ONLY BE USED FOR INIT ENTITIES UNTIL WE HAVE VERSION CONTROL
 template <typename Component>
 class PagedSparseSet {
 private:
-	std::vector<std::unique_ptr<Page>> sparsePages;
+	std::vector<std::unique_ptr<SparseSetPage>> sparsePages;
 	std::vector<Component> dense;
 	std::vector<uint32_t> entities;
 
@@ -88,11 +89,11 @@ public:
 
 	void add(uint32_t entityID, const Component& component) {
 		uint32_t pageIndex = entityID / PAGE_SIZE;
-		if (pageIndex + 1 >= sparsePages.size()) {
-			sparsePages.resize(pageIndex + 1, nullptr);
+		if (pageIndex >= sparsePages.size()) {
+			sparsePages.resize(pageIndex + 1);
 		}
 		if (sparsePages[pageIndex] == nullptr) {
-			sparsePages[pageIndex] = std::make_unique<Page>;
+			sparsePages[pageIndex] = std::make_unique<SparseSetPage>();
 		}
 		dense.push_back(component);
 		sparsePages[pageIndex]->data[entityID % PAGE_SIZE] = dense.size() - 1;
@@ -105,8 +106,9 @@ public:
 		uint32_t denseLast = dense.size() - 1;
 		uint32_t entitiesLast = entities[denseLast];
 		dense[denseIndex] = dense[denseLast];
-		entities[denseIndex] = entities[denseLast];
-        sparsePages[pageIndex]->data[entities[denseIndex] % PAGE_SIZE] = denseIndex;
+		entities[denseIndex] = entitiesLast;
+        uint32_t lastEntityPageIndex = entitiesLast / PAGE_SIZE; 
+        sparsePages[lastEntityPageIndex]->data[entitiesLast % PAGE_SIZE] = denseIndex;
 		dense.pop_back();
 		entities.pop_back();
 	}

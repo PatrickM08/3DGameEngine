@@ -69,8 +69,11 @@ public:
     std::vector<glm::vec3> pointLightPositions;
 
     uint32_t entityCount;
+
+    // Currently there are no paged sparse sets as there are no sparse components that are spaced far apart.
+    // i.e. greater than one entity has a component and these entities differ largely in entity count.
     SparseSet<TransformComponent> transformSet;
-    SparseSet<MeshData> meshSet;
+    PagedSparseSet<MeshData> meshSet;
     SparseSet<MaterialData> materialSet;
     SparseSet<SkyboxTag> skyboxSet;
     SparseSet<InstancedComponent> instancedSet;

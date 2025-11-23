@@ -123,7 +123,9 @@ void Application::updateTiming() {
     lastFrame = currentFrame;
 }
 
+
 int main() {
     Application app;
     return app.run();
 }
+
