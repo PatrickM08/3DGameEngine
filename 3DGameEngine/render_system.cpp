@@ -17,10 +17,11 @@
 
 
 
-RenderSystem::RenderSystem(Window& window)
+RenderSystem::RenderSystem(Window &window)
     : window(window),
-    framebuffer(createFrameBuffer("fb_vertex_shader.vs", "fb_fragment_shader.fs", window.width, window.height)), //THIS NEEDS TO BE UPDATED ON CHANGE
-    quadVAO(createQuad())
+      framebufferShader("fb_vertex_shader.vs", "fb_fragment_shader.fs"),
+      framebuffer(createFrameBuffer(framebufferShader, window.width, window.height)),
+      quadVAO(createQuad())
 {
     initOpenglState();
 }
@@ -103,7 +104,7 @@ GLuint RenderSystem::createQuad() {
 
 
 
-Framebuffer createFrameBuffer(const char* vsPath, const char* fsPath, uint32_t width, uint32_t height) {
+Framebuffer createFrameBuffer(Shader& framebufferShader, uint32_t width, uint32_t height) {
     unsigned int framebuffer;
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -126,7 +127,6 @@ Framebuffer createFrameBuffer(const char* vsPath, const char* fsPath, uint32_t w
         std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    Shader framebufferShader(vsPath, fsPath);
     return Framebuffer{
         .buffer = framebuffer,
         .textureAttachment = textureColorbuffer,

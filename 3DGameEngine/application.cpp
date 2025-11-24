@@ -66,7 +66,7 @@ int Application::run() {
     return 0;
 }
 
-
+// Add std::unreachable() when all window events are accounted for.
 void Application::handleWindowEvent(const Event& event) {
     if (scene.cameraSet.getEntities().empty()) return;
     CameraComponent& camera = scene.cameraSet.getComponent(scene.cameraSet.getEntities()[0]);
@@ -76,6 +76,7 @@ void Application::handleWindowEvent(const Event& event) {
         glViewport(0, 0, event.resize.width, event.resize.height);
         window.width = event.resize.width;
         window.height = event.resize.height;
+        renderSystem.framebuffer = createFrameBuffer(renderSystem.framebufferShader, window.width, window.height);
         updateProjectionMatrix(camera, window.width, window.height);
         break;
     }

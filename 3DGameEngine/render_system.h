@@ -13,18 +13,19 @@ struct Framebuffer {
     Shader shader;
 };
 
-Framebuffer createFrameBuffer(const char* vsPath, const char* fsPath, uint32_t width, uint32_t height);
+Framebuffer createFrameBuffer(Shader& framebufferShader, uint32_t width, uint32_t height);
 
 class RenderSystem {
 public:
     RenderSystem(Window& window);
     void renderScene(ECS& scene);
+    Shader framebufferShader;
+    Framebuffer framebuffer;
 
 private:
     void initOpenglState();
     GLuint createQuad();
 
     Window window;
-    Framebuffer framebuffer;
     GLuint quadVAO;
 };
