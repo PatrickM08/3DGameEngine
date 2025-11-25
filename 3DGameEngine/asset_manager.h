@@ -28,6 +28,8 @@ struct MaterialData {
 	std::vector<Texture> textures;
 };
 
+std::string getPath(const std::string &relativePath);
+
 class AssetManager {
 private:
 	std::vector<MeshData> meshes;
@@ -37,7 +39,7 @@ private:
 	std::vector<MeshData> loadMeshes(const char*);
 	std::vector<MaterialData> loadMaterials(const char* path);
 	std::vector<float> parseOBJFile(const std::string& path, uint32_t& vertexCount);
-	GLuint loadTexture(char const* path);
+	GLuint loadTexture(const std::string& path);
 	GLuint loadCubemap(const std::vector<std::string>& faces);
 
 public:

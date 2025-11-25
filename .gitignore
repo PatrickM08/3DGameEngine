@@ -11,6 +11,7 @@ Debug/
 Release/
 obj/
 bin/
+build/
 
 # Build outputs
 *.exe
@@ -37,3 +38,7 @@ bin/
 .DS_Store
 Thumbs.db
 EOF
+
+# CMake files
+.cache/
+compile_commands.json

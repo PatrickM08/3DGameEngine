@@ -1,46 +1,45 @@
 #pragma once
-#include <cstdint>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <memory>
-#include "entity.h"
-#include "sparse_set.h"
-#include <glm/glm.hpp>
 #include "asset_manager.h"
 #include "camera.h"
+#include "entity.h"
+#include "sparse_set.h"
+#include <cstdint>
+#include <cstring>
+#include <glm/glm.hpp>
+#include <memory>
+#include <string>
 #include <typeinfo>
+#include <unordered_map>
+#include <vector>
 
 struct ComponentBlob {
-    const std::type_info* typeInfo;
+    const std::type_info *typeInfo;
     size_t size;
     std::unique_ptr<uint8_t[]> data;
 
-    template<typename T>
-    ComponentBlob(const T& component);
+    template <typename T> ComponentBlob(const T &component);
 
-    ComponentBlob(ComponentBlob&& other) noexcept;
-    ComponentBlob(const ComponentBlob&) = delete;
-    ComponentBlob& operator=(const ComponentBlob&) = delete;
+    ComponentBlob(ComponentBlob &&other) noexcept;
+    ComponentBlob(const ComponentBlob &) = delete;
+    ComponentBlob &operator=(const ComponentBlob &) = delete;
 };
 
-template<typename T>
-T& deserializeBlob(ComponentBlob& blob);
+template <typename T> T &deserializeBlob(ComponentBlob &blob);
 
-template<typename T>
-ComponentBlob::ComponentBlob(const T& component) {
+template <typename T> ComponentBlob::ComponentBlob(const T &component)
+{
     typeInfo = &typeid(T);
     size = sizeof(T);
     data = std::make_unique<uint8_t[]>(sizeof(T));
-    std::memcpy(data.get(), &component, size);
+    memcpy(data.get(), &component, size);
 }
 
-template<typename T>
-T& deserializeBlob(ComponentBlob& blob) {
+template <typename T> T &deserializeBlob(ComponentBlob &blob)
+{
     if (*blob.typeInfo != typeid(T)) {
         throw std::runtime_error("Type mismatch!");
     }
-    return *reinterpret_cast<T*>(blob.data.get());
+    return *reinterpret_cast<T *>(blob.data.get());
 }
 
 struct MeshHandleStorage {
@@ -57,7 +56,7 @@ struct EntityTemplate {
 };
 
 class ECS {
-public:
+  public:
     ECS();
 
     void parseEntityTemplateFile();
@@ -70,8 +69,9 @@ public:
 
     uint32_t entityCount;
 
-    // Currently there are no paged sparse sets as there are no sparse components that are spaced far apart.
-    // i.e. greater than one entity has a component and these entities differ largely in entity count.
+    // Currently there are no paged sparse sets as there are no sparse
+    // components that are spaced far apart. i.e. greater than one entity has a
+    // component and these entities differ largely in entity count.
     SparseSet<TransformComponent> transformSet;
     PagedSparseSet<MeshData> meshSet;
     SparseSet<MaterialData> materialSet;

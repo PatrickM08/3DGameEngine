@@ -1,34 +1,23 @@
 #include "Application.h"
-#include "render_system.h"
+#include "camera.h"
 #include "ecs.h"
 #include "movement_system.h"
-#include "camera.h"
-#include <iostream>
-#include "entity.h"
+#include "render_system.h"
 #include "sparse_set.h"
-
+#include <iostream>
 
 Application::Application()
-    : window(1600, 1200, "Draft"),
-    windowPtr(window.getGlfwWindowPtr()),
-    renderSystem(window),
-    firstMouse(true),
-    lastX(0.0f),
-    lastY(0.0f),
-    deltaTime(0.0f),
-    lastFrame(0.0f),
-    scene(),
-    movementSystem(scene),
-    worldSpaceInputSystem(scene),
-    tankInputSystem(scene),
-    noClipInputSystem(scene),
-    patrolSystem(scene),
-    collisionSystem(scene),
-    inputDirection(glm::vec3(0.0f, 0.0f, 0.0f))
+    : window(1600, 1200, "Draft"), windowPtr(window.getGlfwWindowPtr()),
+      renderSystem(window), firstMouse(true), lastX(0.0f), lastY(0.0f),
+      deltaTime(0.0f), lastFrame(0.0f), scene(), movementSystem(scene),
+      worldSpaceInputSystem(scene), tankInputSystem(scene),
+      noClipInputSystem(scene), patrolSystem(scene), collisionSystem(scene),
+      inputDirection(glm::vec3(0.0f, 0.0f, 0.0f))
 {
 }
 
-int Application::run() {
+int Application::run()
+{
     while (!glfwWindowShouldClose(windowPtr)) {
         updateTiming();
 
@@ -47,7 +36,7 @@ int Application::run() {
         }
 
         uint32_t camEntity = scene.cameraSet.getEntities()[0];
-        CameraComponent& camera = scene.cameraSet.getComponent(camEntity);
+        CameraComponent &camera = scene.cameraSet.getComponent(camEntity);
         // Could be optimised
         updateProjectionMatrix(camera, window.width, window.height);
         updateViewMatrix(camera);
@@ -55,7 +44,8 @@ int Application::run() {
         // Update systems
         worldSpaceInputSystem.updateVelocity(inputDirection);
         tankInputSystem.updateVelocity(inputDirection, deltaTime);
-        noClipInputSystem.updateVelocity(inputDirection, camera.front, camera.right);
+        noClipInputSystem.updateVelocity(inputDirection, camera.front,
+                                         camera.right);
         patrolSystem.updateVelocity(deltaTime);
         collisionSystem.updateVelocity(deltaTime);
         movementSystem.updateTransforms(deltaTime);
@@ -67,16 +57,20 @@ int Application::run() {
 }
 
 // Add std::unreachable() when all window events are accounted for.
-void Application::handleWindowEvent(const Event& event) {
-    if (scene.cameraSet.getEntities().empty()) return;
-    CameraComponent& camera = scene.cameraSet.getComponent(scene.cameraSet.getEntities()[0]);
+void Application::handleWindowEvent(const Event &event)
+{
+    if (scene.cameraSet.getEntities().empty())
+        return;
+    CameraComponent &camera =
+        scene.cameraSet.getComponent(scene.cameraSet.getEntities()[0]);
 
     switch (event.type) {
     case EventType::WindowResize: {
         glViewport(0, 0, event.resize.width, event.resize.height);
         window.width = event.resize.width;
         window.height = event.resize.height;
-        renderSystem.framebuffer = createFrameBuffer(renderSystem.framebufferShader, window.width, window.height);
+        renderSystem.framebuffer = createFrameBuffer(
+            renderSystem.framebufferShader, window.width, window.height);
         updateProjectionMatrix(camera, window.width, window.height);
         break;
     }
@@ -104,7 +98,8 @@ void Application::handleWindowEvent(const Event& event) {
     }
 }
 
-void Application::handleKeyInput() {
+void Application::handleKeyInput()
+{
     inputDirection.direction = glm::vec3(0.0f, 0.0f, 0.0f);
     if (glfwGetKey(windowPtr, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(windowPtr, true);
@@ -118,15 +113,25 @@ void Application::handleKeyInput() {
         inputDirection.direction += glm::vec3(1.0f, 0.0f, 0.0f);
 }
 
-void Application::updateTiming() {
+void Application::updateTiming()
+{
     float currentFrame = (float)glfwGetTime();
     deltaTime = currentFrame - lastFrame;
     lastFrame = currentFrame;
 }
 
-
-int main() {
-    Application app;
-    return app.run();
+int main()
+{
+    try {
+        Application app;
+        return app.run();
+    }
+    catch (const std::runtime_error &e) {
+        std::cerr << "Runtime Error: " << e.what() << std::endl;
+        return -1;
+    }
+    catch (...) {
+        std::cerr << "Fatal Error." << std::endl;
+        return -1;
+    }
 }
-

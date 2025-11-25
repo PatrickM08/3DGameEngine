@@ -4,21 +4,25 @@
 #include "stb_image.h"
 #include <glad/glad.h>
 #include "text.hpp"
-#include <iostream>  
-#include <fstream>   
-#include <vector>    
-#include <glm/glm.hpp>  
+#include <iostream>
+#include <fstream>
+#include <cstring>
+#include <glm/glm.hpp>
+#include "asset_manager.h"
 const int MAX_TEXT_LENGTH = 30;
 
-Text::Text(const char* fontInfoFile, const char* fontTextureFile) 
-    : glyphs(parseFont(fontInfoFile)),
-    bitmapFontTexture(loadBitmapFont(fontTextureFile)),
-    textShader("text_vertex_shader.vs", "text_fragment_shader.fs")
+Text::Text(const char *fontInfoFile, const char *fontTextureFile)
+    : glyphs(parseFont(getPath(fontInfoFile).c_str())),
+      bitmapFontTexture(loadBitmapFont(fontTextureFile)),
+      textShader("text_vertex_shader.vs", "text_fragment_shader.fs")
 {
     setupTextBuffers();
 }
 
-void Text::renderText(const char* text, const float xPos, const float yPos, const float size, const uint32_t screenWidth, const uint32_t screenHeight) {
+void Text::renderText(const char *text, const float xPos, const float yPos,
+                      const float size, const uint32_t screenWidth,
+                      const uint32_t screenHeight)
+{
     textShader.use();
     glBindVertexArray(textVAO);
     glActiveTexture(GL_TEXTURE0);
@@ -26,7 +30,8 @@ void Text::renderText(const char* text, const float xPos, const float yPos, cons
 
     textShader.setVec2Uniform("screenPosition", glm::vec2(xPos, yPos));
     textShader.setFloatUniform("scale", size);
-    textShader.setVec2Uniform("screenSize", glm::vec2(screenWidth, screenHeight));
+    textShader.setVec2Uniform("screenSize",
+                              glm::vec2(screenWidth, screenHeight));
 
     int length = strlen(text);
     static float vertices[MAX_TEXT_LENGTH * 24];
@@ -84,11 +89,13 @@ void Text::renderText(const char* text, const float xPos, const float yPos, cons
         currentX += glyph.xadvance;
     }
     glBindBuffer(GL_ARRAY_BUFFER, textVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, elementsToUse * sizeof(float), vertices);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, elementsToUse * sizeof(float),
+                    vertices);
     glDrawArrays(GL_TRIANGLES, 0, 6 * length);
 }
 
-std::unordered_map<int, Glyph> Text::parseFont(const char* path) {
+std::unordered_map<int, Glyph> Text::parseFont(const char *path)
+{
     std::unordered_map<int, Glyph> glyphs;
     std::ifstream fileFnt(path);
     if (!fileFnt.is_open()) {
@@ -99,35 +106,36 @@ std::unordered_map<int, Glyph> Text::parseFont(const char* path) {
         if (dataFnt.substr(0, 4) == "char") {
             Glyph g;
             int result = sscanf(dataFnt.c_str(),
-                "char id=%d x=%d y=%d width=%d height=%d xoffset=%d yoffset=%d xadvance=%d",
-                &g.id, &g.x, &g.y, &g.width, &g.height,
-                &g.xoffset, &g.yoffset, &g.xadvance);
-            glyphs.emplace( g.id, g );
+                                "char id=%d x=%d y=%d width=%d height=%d "
+                                "xoffset=%d yoffset=%d xadvance=%d",
+                                &g.id, &g.x, &g.y, &g.width, &g.height,
+                                &g.xoffset, &g.yoffset, &g.xadvance);
+            glyphs.emplace(g.id, g);
         }
     }
     return glyphs;
 }
 
-
-uint32_t Text::loadBitmapFont(const char* path) {
+uint32_t Text::loadBitmapFont(const char *path)
+{
     uint32_t textureID;
     glGenTextures(1, &textureID);
 
     int width, height, nrComponents;
-    unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
-    if (data)
-    {
+    unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
+    if (data) {
         GLenum format = GL_RED;
 
         glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format,
+                     GL_UNSIGNED_BYTE, data);
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        for (auto& [id, glyph] : glyphs) {
+        for (auto &[id, glyph] : glyphs) {
             glyph.u0 = (float)glyph.x / width;
             glyph.v0 = (float)glyph.y / height;
 
@@ -137,8 +145,7 @@ uint32_t Text::loadBitmapFont(const char* path) {
 
         stbi_image_free(data);
     }
-    else
-    {
+    else {
         std::cout << "Texture failed to load at path: " << path << std::endl;
         stbi_image_free(data);
     }
@@ -146,16 +153,20 @@ uint32_t Text::loadBitmapFont(const char* path) {
     return textureID;
 }
 
-void Text::setupTextBuffers() {
+void Text::setupTextBuffers()
+{
     glGenVertexArrays(1, &textVAO);
     glGenBuffers(1, &textVBO);
 
     glBindVertexArray(textVAO);
     glBindBuffer(GL_ARRAY_BUFFER, textVBO);
-    glBufferData(GL_ARRAY_BUFFER, MAX_TEXT_LENGTH * 24 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, MAX_TEXT_LENGTH * 24 * sizeof(float), nullptr,
+                 GL_DYNAMIC_DRAW);
 
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                          (void *)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                          (void *)(2 * sizeof(float)));
     glEnableVertexAttribArray(1);
 }

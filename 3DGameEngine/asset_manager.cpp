@@ -10,6 +10,14 @@
 #include <iostream>
 #include "tiny_obj_loader.h"
 
+std::string getPath(const std::string &relativePath)
+{
+    #ifdef PROJECT_SOURCE_DIR
+        return std::string(PROJECT_SOURCE_DIR) + "/" + relativePath;
+    #else
+        return relativePath;
+    #endif
+}
 
 std::vector<float> AssetManager::parseOBJFile(const std::string& path, uint32_t& vertexCount) {
     tinyobj::ObjReader reader;
@@ -159,7 +167,7 @@ AssetManager::AssetManager() : meshes(loadMeshes("meshes.txt")), materials(loadM
 
 std::vector<MeshData> AssetManager::loadMeshes(const char* path) {
 	std::vector<MeshData> meshes;
-	std::ifstream file(path);
+	std::ifstream file(getPath(path));
 	if (!file.is_open()) {
 		throw std::runtime_error("Error opening mesh definition file.");
 	}
@@ -178,7 +186,7 @@ std::vector<MeshData> AssetManager::loadMeshes(const char* path) {
         else if (drawUsageString == "GL_STREAM_DRAW") drawUsage = GL_STREAM_DRAW;
         else if (drawUsageString == "GL_STATIC_DRAW") drawUsage = GL_STATIC_DRAW;
         uint32_t vertexCount = 0;
-        std::vector<float> vertices = parseOBJFile(objPath, vertexCount);
+        std::vector<float> vertices = parseOBJFile(getPath(objPath), vertexCount);
         GLuint VAO, VBO;
         glGenVertexArrays(1, &VAO);
         glGenBuffers(1, &VBO);
@@ -207,7 +215,7 @@ std::vector<MeshData> AssetManager::loadMeshes(const char* path) {
 
 std::vector<MaterialData> AssetManager::loadMaterials(const char* path) {
     std::vector<MaterialData> materials;
-    std::ifstream file(path);
+    std::ifstream file(getPath(path));
     if (!file.is_open()) {
         throw std::runtime_error("Error opening material definition file.");
     }
@@ -256,7 +264,7 @@ std::vector<MaterialData> AssetManager::loadMaterials(const char* path) {
                 while (textureStream >> texturePath >> textureTargetString) {
                     material.textures.emplace_back();
                     auto& texture = material.textures.back();
-                    texture.id = loadTexture(texturePath.c_str());
+                    texture.id = loadTexture(getPath(texturePath));
                     GLenum textureTarget = GL_TEXTURE_2D;
                     if (textureTargetString == "GL_TEXTURE_CUBE_MAP") textureTarget = GL_TEXTURE_CUBE_MAP;
                     else if (textureTargetString == "GL_TEXTURE_2D") textureTarget = GL_TEXTURE_2D;
@@ -275,7 +283,7 @@ std::vector<MaterialData> AssetManager::loadMaterials(const char* path) {
                 std::string face;
                 for (int i = 0; i < 6; i++) {
                     textureStream >> face;
-                    faces.push_back(face);
+                    faces.push_back(getPath(face));
                 }
                 material.textures.emplace_back();
                 auto& texture = material.textures.back();
@@ -287,13 +295,13 @@ std::vector<MaterialData> AssetManager::loadMaterials(const char* path) {
     return materials;
 }
 
-GLuint AssetManager::loadTexture(char const* path)
+GLuint AssetManager::loadTexture(const std::string& path)
 {
     GLuint textureID;
     glGenTextures(1, &textureID);
 
     int width, height, nrComponents;
-    unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
+    unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrComponents, 0);
     if (data)
     {
         GLenum format;

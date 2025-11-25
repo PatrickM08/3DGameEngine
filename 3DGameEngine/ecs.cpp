@@ -12,6 +12,7 @@
 #include "camera.h"
 
 
+
 ComponentBlob::ComponentBlob(ComponentBlob&& other) noexcept
     : typeInfo(other.typeInfo), size(other.size), data(std::move(other.data)) {
 }
@@ -24,7 +25,7 @@ ECS::ECS() {
 }
 
 void ECS::parseEntityTemplateFile() {
-    std::ifstream file("entities.txt");
+    std::ifstream file(getPath("entities.txt"));
     if (!file.is_open()) {
         throw std::runtime_error("Error opening entity template file.");
     }
@@ -81,7 +82,7 @@ void ECS::parseEntityTemplateFile() {
 }
 
 void ECS::parseSceneFile() {
-    std::ifstream file("scene.txt");
+    std::ifstream file(getPath("scene.txt"));
     if (!file.is_open()) {
         throw std::runtime_error("Error opening scene file.");
     }

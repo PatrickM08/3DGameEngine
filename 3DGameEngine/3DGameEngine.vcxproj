@@ -141,11 +141,10 @@
     <ClCompile Include="render_system.cpp" />
     <ClCompile Include="stb_setup.cpp" />
     <ClCompile Include="text.cpp" />
-    <ClCompile Include="tiny_object_loader_implementation.cpp" />
+    <ClCompile Include="tiny_obj_loader_implementation.cpp" />
     <ClCompile Include="window.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\Downloads\stb_image.h" />
     <ClInclude Include="application.h" />
     <ClInclude Include="asset_manager.h" />
     <ClInclude Include="camera.h" />
