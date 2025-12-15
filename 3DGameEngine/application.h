@@ -1,11 +1,10 @@
 #pragma once
-#include "Window.h" 
+#include "Window.h"
 #include "render_system.h"
-#include "camera.h"
 #include "ecs.h"
-#include "entity.h"
 #include "movement_system.h"
 #include "collision_system.h"
+#include "lua_interface.h"
 
 class Application {
 private:
@@ -23,6 +22,7 @@ private:
     InputDirection inputDirection;
     PatrolSystem patrolSystem;
     CollisionSystem collisionSystem;
+    LuaInterface luaInterface;
 
 private:
     void handleWindowEvent(const Event& event);

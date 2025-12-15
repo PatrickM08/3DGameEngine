@@ -13,33 +13,35 @@
 #include <vector>
 
 struct ComponentBlob {
-    const std::type_info *typeInfo;
+    const std::type_info* typeInfo;
     size_t size;
     std::unique_ptr<uint8_t[]> data;
 
-    template <typename T> ComponentBlob(const T &component);
+    template <typename T>
+    ComponentBlob(const T& component);
 
-    ComponentBlob(ComponentBlob &&other) noexcept;
-    ComponentBlob(const ComponentBlob &) = delete;
-    ComponentBlob &operator=(const ComponentBlob &) = delete;
+    ComponentBlob(ComponentBlob&& other) noexcept;
+    ComponentBlob(const ComponentBlob&) = delete;
+    ComponentBlob& operator=(const ComponentBlob&) = delete;
 };
 
-template <typename T> T &deserializeBlob(ComponentBlob &blob);
+template <typename T>
+T& deserializeBlob(ComponentBlob& blob);
 
-template <typename T> ComponentBlob::ComponentBlob(const T &component)
-{
+template <typename T>
+ComponentBlob::ComponentBlob(const T& component) {
     typeInfo = &typeid(T);
     size = sizeof(T);
     data = std::make_unique<uint8_t[]>(sizeof(T));
     memcpy(data.get(), &component, size);
 }
 
-template <typename T> T &deserializeBlob(ComponentBlob &blob)
-{
+template <typename T>
+T& deserializeBlob(ComponentBlob& blob) {
     if (*blob.typeInfo != typeid(T)) {
         throw std::runtime_error("Type mismatch!");
     }
-    return *reinterpret_cast<T *>(blob.data.get());
+    return *reinterpret_cast<T*>(blob.data.get());
 }
 
 struct MeshHandleStorage {
@@ -56,11 +58,12 @@ struct EntityTemplate {
 };
 
 class ECS {
-  public:
+public:
     ECS();
 
     void parseEntityTemplateFile();
     void parseSceneFile();
+    void useEntityTemplate(const std::string& entityName);
 
     AssetManager assetManager;
 

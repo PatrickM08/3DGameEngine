@@ -12,7 +12,7 @@ struct CameraComponent {
     glm::vec3 positionOffset;
     glm::vec3 position;
     float nearPlane = 0.1;
-    float farPlane = 100;
+    float farPlane = 1000;
     bool projectionDirty; // Dirty flag to tell system when to recalculate projection matrix
     glm::vec3 front;
     glm::vec3 up;
@@ -30,9 +30,9 @@ struct CameraComponent {
     CameraType cameraType = CameraType::FIXED;
 };
 
-void updateCameraPosition(CameraComponent& camera, glm::vec3 pos);
-void updateCameraVectors(CameraComponent& camera);
-void processMouseScroll(CameraComponent& camera, float yoffset);
-void updateProjectionMatrix(CameraComponent& camera, uint32_t windowWidth, uint32_t windowHeight);
-void processMouseMovement(CameraComponent& camera, float xoffset, float yoffset, bool constrainPitch = true);
-void updateViewMatrix(CameraComponent& camera);
+void updateCameraPosition(CameraComponent &camera, glm::vec3 pos);
+void updateCameraVectors(CameraComponent &camera);
+void processMouseScroll(CameraComponent &camera, float yoffset);
+void updateProjectionMatrix(CameraComponent &camera, uint32_t windowWidth, uint32_t windowHeight);
+void processMouseMovement(CameraComponent &camera, float xoffset, float yoffset, bool constrainPitch = true);
+void updateViewMatrix(CameraComponent &camera);

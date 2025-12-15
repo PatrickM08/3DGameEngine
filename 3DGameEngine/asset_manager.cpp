@@ -12,14 +12,15 @@
 
 std::string getPath(const std::string &relativePath)
 {
-    #ifdef PROJECT_SOURCE_DIR
-        return std::string(PROJECT_SOURCE_DIR) + "/" + relativePath;
-    #else
-        return relativePath;
-    #endif
+#ifdef PROJECT_SOURCE_DIR
+    return std::string(PROJECT_SOURCE_DIR) + "/" + relativePath;
+#else
+    return relativePath;
+#endif
 }
 
-std::vector<float> AssetManager::parseOBJFile(const std::string& path, uint32_t& vertexCount) {
+std::vector<float> AssetManager::parseOBJFile(const std::string &path, uint32_t &vertexCount)
+{
     tinyobj::ObjReader reader;
     std::vector<float> vertices;
 
@@ -34,8 +35,8 @@ std::vector<float> AssetManager::parseOBJFile(const std::string& path, uint32_t&
         std::cout << "TinyObjReader: " << reader.Warning();
     }
 
-    auto& attrib = reader.GetAttrib();
-    auto& shapes = reader.GetShapes();
+    auto &attrib = reader.GetAttrib();
+    auto &shapes = reader.GetShapes();
 
     // Loop over shapes
     for (size_t s = 0; s < shapes.size(); s++) {
@@ -43,7 +44,7 @@ std::vector<float> AssetManager::parseOBJFile(const std::string& path, uint32_t&
         size_t index_offset = 0;
         for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
             size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
-            
+
             // Loop over vertices in the face.
             for (size_t v = 0; v < fv; v++) {
                 // access to vertex
@@ -51,7 +52,7 @@ std::vector<float> AssetManager::parseOBJFile(const std::string& path, uint32_t&
                 tinyobj::real_t vx = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
                 tinyobj::real_t vy = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
                 tinyobj::real_t vz = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
-                vertices.insert(vertices.end(), { vx, vy, vz });
+                vertices.insert(vertices.end(), {vx, vy, vz});
                 vertexCount++;
 
                 // Check if `normal_index` is zero or positive. negative = no normal data
@@ -59,20 +60,20 @@ std::vector<float> AssetManager::parseOBJFile(const std::string& path, uint32_t&
                     tinyobj::real_t nx = attrib.normals[3 * size_t(idx.normal_index) + 0];
                     tinyobj::real_t ny = attrib.normals[3 * size_t(idx.normal_index) + 1];
                     tinyobj::real_t nz = attrib.normals[3 * size_t(idx.normal_index) + 2];
-                    vertices.insert(vertices.end(), { nx, ny, nz });
+                    vertices.insert(vertices.end(), {nx, ny, nz});
                 }
                 else {
-                    vertices.insert(vertices.end(), { 0, 1, 0 });
+                    vertices.insert(vertices.end(), {0, 1, 0});
                 }
 
                 // Check if `texcoord_index` is zero or positive. negative = no texcoord data
                 if (idx.texcoord_index >= 0) {
                     tinyobj::real_t tx = attrib.texcoords[2 * size_t(idx.texcoord_index) + 0];
                     tinyobj::real_t ty = attrib.texcoords[2 * size_t(idx.texcoord_index) + 1];
-                    vertices.insert(vertices.end(), { tx, ty});
+                    vertices.insert(vertices.end(), {tx, ty});
                 }
                 else {
-                    vertices.insert(vertices.end(), { 0,0 });
+                    vertices.insert(vertices.end(), {0, 0});
                 }
             }
             index_offset += fv;
@@ -165,26 +166,30 @@ std::vector<float> AssetManager::parseOBJFile(const char* path, uint32_t& vertex
 
 AssetManager::AssetManager() : meshes(loadMeshes("meshes.txt")), materials(loadMaterials("materials.txt")) {}
 
-std::vector<MeshData> AssetManager::loadMeshes(const char* path) {
-	std::vector<MeshData> meshes;
-	std::ifstream file(getPath(path));
-	if (!file.is_open()) {
-		throw std::runtime_error("Error opening mesh definition file.");
-	}
-	std::string line;
-	while (std::getline(file, line)) {
+std::vector<MeshData> AssetManager::loadMeshes(const char *path)
+{
+    std::vector<MeshData> meshes;
+    std::ifstream file(getPath(path));
+    if (!file.is_open()) {
+        throw std::runtime_error("Error opening mesh definition file.");
+    }
+    std::string line;
+    while (std::getline(file, line)) {
         if (line.empty() || line[0] == '#') {
             continue;
         }
-		std::istringstream stream(line);
+        std::istringstream stream(line);
         uint32_t meshHandle;
         std::string objPath;
         std::string drawUsageString;
         stream >> meshHandle >> objPath >> drawUsageString;
         GLenum drawUsage = GL_STATIC_DRAW;
-        if (drawUsageString == "GL_DYNAMIC_DRAW") drawUsage = GL_DYNAMIC_DRAW;
-        else if (drawUsageString == "GL_STREAM_DRAW") drawUsage = GL_STREAM_DRAW;
-        else if (drawUsageString == "GL_STATIC_DRAW") drawUsage = GL_STATIC_DRAW;
+        if (drawUsageString == "GL_DYNAMIC_DRAW")
+            drawUsage = GL_DYNAMIC_DRAW;
+        else if (drawUsageString == "GL_STREAM_DRAW")
+            drawUsage = GL_STREAM_DRAW;
+        else if (drawUsageString == "GL_STATIC_DRAW")
+            drawUsage = GL_STATIC_DRAW;
         uint32_t vertexCount = 0;
         std::vector<float> vertices = parseOBJFile(getPath(objPath), vertexCount);
         GLuint VAO, VBO;
@@ -194,26 +199,26 @@ std::vector<MeshData> AssetManager::loadMeshes(const char* path) {
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), drawUsage);
         // The vertex format for static mesh vertex buffers is standardised (vx,vy,vz,nx,ny,nz,tx,ty)
-        size_t vertexAttribStride = 8 * sizeof(float);  
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, vertexAttribStride, (void*)0);
+        size_t vertexAttribStride = 8 * sizeof(float);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, vertexAttribStride, (void *)0);
         glEnableVertexAttribArray(0);
         size_t normalsOffset = 3 * sizeof(float);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, vertexAttribStride, (void*)normalsOffset);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, vertexAttribStride, (void *)normalsOffset);
         glEnableVertexAttribArray(1);
         size_t texCoordsOffset = 6 * sizeof(float);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, vertexAttribStride, (void*)texCoordsOffset);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, vertexAttribStride, (void *)texCoordsOffset);
         glEnableVertexAttribArray(2);
         meshes.emplace_back();
-        auto& mesh = meshes.back();
+        auto &mesh = meshes.back();
         mesh.handle = meshHandle;
         mesh.vao = VAO;
         mesh.vertexCount = vertexCount;
-	}
+    }
     return meshes;
 }
 
-
-std::vector<MaterialData> AssetManager::loadMaterials(const char* path) {
+std::vector<MaterialData> AssetManager::loadMaterials(const char *path)
+{
     std::vector<MaterialData> materials;
     std::ifstream file(getPath(path));
     if (!file.is_open()) {
@@ -229,7 +234,7 @@ std::vector<MaterialData> AssetManager::loadMaterials(const char* path) {
         stream >> prefix;
         if (prefix == "material") {
             materials.emplace_back();
-            auto& material = materials.back();
+            auto &material = materials.back();
             uint32_t materialHandle;
             stream >> materialHandle;
             material.handle = materialHandle;
@@ -241,20 +246,17 @@ std::vector<MaterialData> AssetManager::loadMaterials(const char* path) {
         }
         else if (prefix == "lit") {
             if (!materials.empty()) {
-                auto& material = materials.back();
+                auto &material = materials.back();
                 std::string restOfLine;
                 std::getline(stream, restOfLine);
                 std::replace(restOfLine.begin(), restOfLine.end(), ',', ' ');
                 std::istringstream lightStream(restOfLine);
-                lightStream >> material.ambient.x >> material.ambient.y >> material.ambient.z
-                    >> material.diffuse.x >> material.diffuse.y >> material.diffuse.z
-                    >> material.specular.x >> material.specular.y >> material.specular.z
-                    >> material.shininess;
+                lightStream >> material.ambient.x >> material.ambient.y >> material.ambient.z >> material.diffuse.x >> material.diffuse.y >> material.diffuse.z >> material.specular.x >> material.specular.y >> material.specular.z >> material.shininess;
             }
         }
         else if (prefix == "textures") {
             if (!materials.empty()) {
-                auto& material = materials.back();
+                auto &material = materials.back();
                 std::string restOfLine;
                 std::getline(stream, restOfLine);
                 std::replace(restOfLine.begin(), restOfLine.end(), ',', ' ');
@@ -263,18 +265,20 @@ std::vector<MaterialData> AssetManager::loadMaterials(const char* path) {
                 std::string textureTargetString;
                 while (textureStream >> texturePath >> textureTargetString) {
                     material.textures.emplace_back();
-                    auto& texture = material.textures.back();
+                    auto &texture = material.textures.back();
                     texture.id = loadTexture(getPath(texturePath));
                     GLenum textureTarget = GL_TEXTURE_2D;
-                    if (textureTargetString == "GL_TEXTURE_CUBE_MAP") textureTarget = GL_TEXTURE_CUBE_MAP;
-                    else if (textureTargetString == "GL_TEXTURE_2D") textureTarget = GL_TEXTURE_2D;
+                    if (textureTargetString == "GL_TEXTURE_CUBE_MAP")
+                        textureTarget = GL_TEXTURE_CUBE_MAP;
+                    else if (textureTargetString == "GL_TEXTURE_2D")
+                        textureTarget = GL_TEXTURE_2D;
                     texture.target = textureTarget;
                 }
             }
         }
         else if (prefix == "cubemap") {
             if (!materials.empty()) {
-                auto& material = materials.back();
+                auto &material = materials.back();
                 std::string restOfLine;
                 std::getline(stream, restOfLine);
                 std::replace(restOfLine.begin(), restOfLine.end(), ',', ' ');
@@ -286,7 +290,7 @@ std::vector<MaterialData> AssetManager::loadMaterials(const char* path) {
                     faces.push_back(getPath(face));
                 }
                 material.textures.emplace_back();
-                auto& texture = material.textures.back();
+                auto &texture = material.textures.back();
                 texture.id = loadCubemap(faces);
                 texture.target = GL_TEXTURE_CUBE_MAP;
             }
@@ -295,15 +299,14 @@ std::vector<MaterialData> AssetManager::loadMaterials(const char* path) {
     return materials;
 }
 
-GLuint AssetManager::loadTexture(const std::string& path)
+GLuint AssetManager::loadTexture(const std::string &path)
 {
     GLuint textureID;
     glGenTextures(1, &textureID);
 
     int width, height, nrComponents;
     unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrComponents, 0);
-    if (data)
-    {
+    if (data) {
         GLenum format;
         if (nrComponents == 1)
             format = GL_RED;
@@ -323,8 +326,7 @@ GLuint AssetManager::loadTexture(const std::string& path)
 
         stbi_image_free(data);
     }
-    else
-    {
+    else {
         std::cout << "Texture failed to load at path: " << path << std::endl;
         stbi_image_free(data);
     }
@@ -332,23 +334,20 @@ GLuint AssetManager::loadTexture(const std::string& path)
     return textureID;
 }
 
-GLuint AssetManager::loadCubemap(const std::vector<std::string>& faces)
+GLuint AssetManager::loadCubemap(const std::vector<std::string> &faces)
 {
     GLuint textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
     int count = 0;
     int width, height, nrChannels;
-    for (const std::string& face : faces)
-    {
-        unsigned char* data = stbi_load(face.c_str(), &width, &height, &nrChannels, 0);
-        if (data)
-        {
+    for (const std::string &face : faces) {
+        unsigned char *data = stbi_load(face.c_str(), &width, &height, &nrChannels, 0);
+        if (data) {
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + count, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
             stbi_image_free(data);
         }
-        else
-        {
+        else {
             std::cout << "Cubemap texture failed to load at path: " << face << std::endl;
             stbi_image_free(data);
         }
@@ -363,10 +362,12 @@ GLuint AssetManager::loadCubemap(const std::vector<std::string>& faces)
     return textureID;
 }
 
-const MeshData& AssetManager::getMesh(uint32_t handle) {
+const MeshData &AssetManager::getMesh(uint32_t handle)
+{
     return meshes[handle];
 }
 
-MaterialData& AssetManager::getMaterial(uint32_t handle) {
+MaterialData &AssetManager::getMaterial(uint32_t handle)
+{
     return materials[handle];
 }

@@ -1,13 +1,7 @@
 #pragma once
-#include "shader_s.h"
 #include <cstdint>
-#include <vector>
-#include <initializer_list>
-#include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <GLFW/glfw3.h>
-
 
 struct Entity {
     uint32_t id;
@@ -15,6 +9,8 @@ struct Entity {
 
 struct TransformComponent {
     glm::mat4 transform = glm::mat4(1.0f);
+    glm::vec3 position = glm::vec3(0, 0, 0);
+    glm::vec3 scale = glm::vec3(1, 1, 1);
     glm::quat rotation = glm::quat(1, 0, 0, 0);
 };
 
@@ -35,7 +31,7 @@ struct RotationSpeedComponent {
 };
 
 struct PatrolComponent {
-    glm::vec3 direction = glm::vec3{ 0,0,0 };
+    glm::vec3 direction = glm::vec3{0, 0, 0};
     float magnitude = 0.0f;
     float currentPatrolDistance = 0.0f;
 };

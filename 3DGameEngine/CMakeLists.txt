@@ -1,48 +1,47 @@
-cmake_minimum_required(VERSION 3.14)
-project(ProtoPlay VERSION 1.0)
+cmake_minimum_required(VERSION 3.16)
+project(ProtoPlay VERSION 1.0 LANGUAGES C CXX)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL "")
 
-include(ProcessorCount)
-ProcessorCount(N)
-if(NOT N EQUAL 0)
-    set(CMAKE_BUILD_PARALLEL_LEVEL ${N})
-endif()
+find_package(Lua REQUIRED)
 
-# --- GLAD Configuration ---
-set(GLAD_SOURCES "vendor/glad/src/glad.c")
-set(GLAD_INCLUDE_DIR "vendor/glad/include")
-include_directories(${GLAD_INCLUDE_DIR})
-
-# --- GLFW FetchContent ---
 include(FetchContent)
 
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "")
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "")
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
-
 FetchContent_Declare(
     glfw
     GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG        3.3.8 # Known stable tag
+    GIT_TAG        3.3.8
 )
-FetchContent_MakeAvailable(glfw)
-
 
 FetchContent_Declare(
     glm
     GIT_REPOSITORY https://github.com/g-truc/glm.git
-    GIT_TAG        1.0.1  # Use a known stable tag
+    GIT_TAG        1.0.1
 )
 
-FetchContent_MakeAvailable(glm)
+FetchContent_Declare(
+    sol2
+    GIT_REPOSITORY https://github.com/ThePhD/sol2.git
+    GIT_TAG        v3.3.0
+)
 
-# --- Engine Executable ---
+FetchContent_MakeAvailable(glfw glm sol2)
+
+set(GLAD_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/vendor/glad/include")
+set(GLAD_SOURCES "vendor/glad/src/glad.c")
+
+add_library(glad STATIC ${GLAD_SOURCES})
+target_include_directories(glad PUBLIC ${GLAD_INCLUDE_DIR})
+
 set(ENGINE_SOURCES
     application.cpp
-    ${GLAD_SOURCES}
     asset_manager.cpp
     camera.cpp
     collision_system.cpp
@@ -53,25 +52,51 @@ set(ENGINE_SOURCES
     text.cpp
     tiny_obj_loader_implementation.cpp
     window.cpp
+    lua_interface.cpp
 )
 
 add_executable(${PROJECT_NAME} ${ENGINE_SOURCES})
 
-find_package(OpenGL REQUIRED)
-
-# --- Compile Definitions ---
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+target_include_directories(${PROJECT_NAME} PRIVATE 
+    ${LUA_INCLUDE_DIR}
 )
 
-# --- Linking ---
-target_link_libraries(${PROJECT_NAME}
+
+target_precompile_headers(${PROJECT_NAME} PRIVATE
+    <vector>
+    <string>
+    <iostream>
+    <memory>
+    <algorithm>
+    <map>
+    <unordered_map>
+    <glm/glm.hpp>
+    <sol/sol.hpp>
+    <glad/glad.h>
+    <GLFW/glfw3.h>
+)
+
+find_package(OpenGL REQUIRED)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    glad    
     glfw
     OpenGL::GL
     glm
+    ${LUA_LIBRARIES}
+    sol2
 )
 
-# --- Platform Specifics (macOS) ---
+
+file(GLOB_RECURSE LUA_SCRIPTS "${CMAKE_SOURCE_DIR}/scripts/*.lua")
+if (LUA_SCRIPTS)
+    file(COPY ${LUA_SCRIPTS} DESTINATION "${CMAKE_BINARY_DIR}/scripts")
+endif()
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
+
 if (APPLE)
-    target_link_libraries(${PROJECT_NAME} "-framework Cocoa" "-framework IOKit" "-framework CoreFoundation")
+    target_link_libraries(${PROJECT_NAME} PRIVATE "-framework Cocoa" "-framework IOKit" "-framework CoreFoundation")
 endif()

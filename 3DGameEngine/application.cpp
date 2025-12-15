@@ -1,8 +1,6 @@
 #include "Application.h"
 #include "camera.h"
 #include "ecs.h"
-#include "movement_system.h"
-#include "render_system.h"
 #include "sparse_set.h"
 #include <iostream>
 
@@ -12,12 +10,9 @@ Application::Application()
       deltaTime(0.0f), lastFrame(0.0f), scene(), movementSystem(scene),
       worldSpaceInputSystem(scene), tankInputSystem(scene),
       noClipInputSystem(scene), patrolSystem(scene), collisionSystem(scene),
-      inputDirection(glm::vec3(0.0f, 0.0f, 0.0f))
-{
-}
+      inputDirection(glm::vec3(0.0f, 0.0f, 0.0f)), luaInterface(scene) {}
 
-int Application::run()
-{
+int Application::run() {
     while (!glfwWindowShouldClose(windowPtr)) {
         updateTiming();
 
@@ -36,7 +31,7 @@ int Application::run()
         }
 
         uint32_t camEntity = scene.cameraSet.getEntities()[0];
-        CameraComponent &camera = scene.cameraSet.getComponent(camEntity);
+        CameraComponent& camera = scene.cameraSet.getComponent(camEntity);
         // Could be optimised
         updateProjectionMatrix(camera, window.width, window.height);
         updateViewMatrix(camera);
@@ -57,11 +52,10 @@ int Application::run()
 }
 
 // Add std::unreachable() when all window events are accounted for.
-void Application::handleWindowEvent(const Event &event)
-{
+void Application::handleWindowEvent(const Event& event) {
     if (scene.cameraSet.getEntities().empty())
         return;
-    CameraComponent &camera =
+    CameraComponent& camera =
         scene.cameraSet.getComponent(scene.cameraSet.getEntities()[0]);
 
     switch (event.type) {
@@ -98,8 +92,7 @@ void Application::handleWindowEvent(const Event &event)
     }
 }
 
-void Application::handleKeyInput()
-{
+void Application::handleKeyInput() {
     inputDirection.direction = glm::vec3(0.0f, 0.0f, 0.0f);
     if (glfwGetKey(windowPtr, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(windowPtr, true);
@@ -113,24 +106,20 @@ void Application::handleKeyInput()
         inputDirection.direction += glm::vec3(1.0f, 0.0f, 0.0f);
 }
 
-void Application::updateTiming()
-{
+void Application::updateTiming() {
     float currentFrame = (float)glfwGetTime();
     deltaTime = currentFrame - lastFrame;
     lastFrame = currentFrame;
 }
 
-int main()
-{
+int main() {
     try {
         Application app;
         return app.run();
-    }
-    catch (const std::runtime_error &e) {
+    } catch (const std::runtime_error& e) {
         std::cerr << "Runtime Error: " << e.what() << std::endl;
         return -1;
-    }
-    catch (...) {
+    } catch (...) {
         std::cerr << "Fatal Error." << std::endl;
         return -1;
     }
