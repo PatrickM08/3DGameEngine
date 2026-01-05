@@ -4,7 +4,6 @@
 #include "ecs.h"
 #include "movement_system.h"
 #include "collision_system.h"
-#include "lua_interface.h"
 
 class Application {
 private:
@@ -22,7 +21,6 @@ private:
     InputDirection inputDirection;
     PatrolSystem patrolSystem;
     CollisionSystem collisionSystem;
-    LuaInterface luaInterface;
 
 private:
     void handleWindowEvent(const Event& event);

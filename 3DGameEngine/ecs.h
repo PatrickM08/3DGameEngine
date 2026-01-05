@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <vector>
 
+static
+
 struct ComponentBlob {
     const std::type_info* typeInfo;
     size_t size;
@@ -70,13 +72,16 @@ public:
     std::unordered_map<std::string, EntityTemplate> entityTemplates;
     std::vector<glm::vec3> pointLightPositions;
 
+    static constexpr uint32_t MAX_ENTITIES = 2000000;
     uint32_t entityCount;
 
     // Currently there are no paged sparse sets as there are no sparse
     // components that are spaced far apart. i.e. greater than one entity has a
     // component and these entities differ largely in entity count.
+    // 
+    // TODO: NEED TO RESERVE MEMORY ONCE WE GET DYNAMIC ENTITY CREATION
     SparseSet<TransformComponent> transformSet;
-    PagedSparseSet<MeshData> meshSet;
+    SparseSet<MeshData> meshSet;
     SparseSet<MaterialData> materialSet;
     SparseSet<SkyboxTag> skyboxSet;
     SparseSet<InstancedComponent> instancedSet;
@@ -90,4 +95,6 @@ public:
     SparseSet<CollisionComponent> collisionSet;
     SparseSet<RenderableTag> renderableSet;
     SparseSet<CameraComponent> cameraSet;
+
+    std::vector<uint32_t> visibleEntities;
 };

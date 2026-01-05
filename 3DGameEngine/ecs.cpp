@@ -18,6 +18,7 @@ ComponentBlob::ComponentBlob(ComponentBlob&& other) noexcept
 ECS::ECS() {
     entityCount = 0;
     entityTemplates.reserve(10);
+    visibleEntities.reserve(2000000);
     parseEntityTemplateFile();
     parseSceneFile();
 }
@@ -50,8 +51,7 @@ void ECS::parseEntityTemplateFile() {
         } else if (prefix == "renderable") {
             entityTemplates[entityName].components.emplace_back(RenderableTag{});
         } else if (prefix == "transform") {
-            TransformComponent transform{glm::mat4(1.0f), glm::vec3(0.0f),
-                                         glm::vec3(0.0f), glm::quat_cast(glm::mat4(1.0f))};
+            TransformComponent transform{};
             entityTemplates[entityName].components.emplace_back(transform);
         } else if (prefix == "skybox") {
             entityTemplates[entityName].components.emplace_back(SkyboxTag{});
@@ -148,7 +148,7 @@ void ECS::parseSceneFile() {
                 transformSet.add(entityCount, TransformComponent{});
             }
             auto& transform = transformSet.getComponent(entityCount);
-            transform.transform = glm::translate(transform.transform, spawnPosition);
+            transform.position = spawnPosition;
         } else if (prefix == "playerInputWorld") {
             inputWorldSet.add(entityCount, PlayerInputWorldTag{});
         } else if (prefix == "playerInputTank") {
@@ -172,7 +172,7 @@ void ECS::parseSceneFile() {
             std::istringstream cameraStream(restOfLine);
             CameraComponent camera;
             cameraStream >> type >> camera.positionOffset.x >> camera.positionOffset.y >> camera.positionOffset.z >> camera.worldUp.x >> camera.worldUp.y >> camera.worldUp.z >> camera.yaw >> camera.pitch;
-            camera.position = glm::vec3(transformSet.getComponent(entityCount).transform[3]) + camera.positionOffset;
+            camera.position = glm::vec3(transformSet.getComponent(entityCount).position) + camera.positionOffset;
             CameraType cameraType = CameraType::FIXED;
             if (type == "mouse")
                 cameraType = CameraType::MOUSETURN;

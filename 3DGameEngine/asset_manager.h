@@ -14,10 +14,16 @@ public:
 	
 };
 
+struct AABB {
+    float minX, minY, minZ;
+    float maxX, maxY, maxZ;
+};
+
 struct MeshData {
 	uint32_t handle;
 	GLuint vao;
 	GLsizei vertexCount;
+    AABB localAABB;
 };
 
 struct MaterialData {
@@ -38,7 +44,7 @@ private:
 private:
 	std::vector<MeshData> loadMeshes(const char*);
 	std::vector<MaterialData> loadMaterials(const char* path);
-	std::vector<float> parseOBJFile(const std::string& path, uint32_t& vertexCount);
+    std::vector<float> parseOBJFile(const std::string& path, uint32_t& vertexCount, AABB& localAABB);
 	GLuint loadTexture(const std::string& path);
 	GLuint loadCubemap(const std::vector<std::string>& faces);
 

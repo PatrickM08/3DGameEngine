@@ -11,6 +11,8 @@
 struct Shader {
     uint32_t id;
     std::unordered_map<std::string, GLint> uniforms;
+    // TODO: SORT THIS OUT
+    static const bool UNIFORM_DEBUG = false;
 
     Shader() : id(0) {}
 
@@ -117,6 +119,7 @@ struct Shader {
             uniforms.emplace(name, location);
             return;
         }
+        if (UNIFORM_DEBUG)
         std::cout << "Error finding uniform: " << name << std::endl;
     }
 
@@ -133,6 +136,7 @@ struct Shader {
             uniforms.emplace(name, location);
             return;
         }
+        if (UNIFORM_DEBUG)
         std::cout << "Error finding uniform: " << name << std::endl;
     }
 
@@ -149,6 +153,7 @@ struct Shader {
             uniforms.emplace(name, location);
             return;
         }
+        if (UNIFORM_DEBUG)
         std::cout << "Error finding uniform: " << name << std::endl;
     }
 
@@ -165,6 +170,7 @@ struct Shader {
             uniforms.emplace(name, location);
             return;
         }
+        if (UNIFORM_DEBUG)
         std::cout << "Error finding uniform: " << name << std::endl;
     }
 
@@ -181,6 +187,7 @@ struct Shader {
             uniforms.emplace(name, location);
             return;
         }
+        if (UNIFORM_DEBUG)
         std::cout << "Error finding uniform: " << name << std::endl;
     }
 
@@ -197,6 +204,7 @@ struct Shader {
             uniforms.emplace(name, location);
             return;
         }
+        if (UNIFORM_DEBUG)
         std::cout << "Error finding uniform: " << name << std::endl;
     }
 
@@ -213,6 +221,7 @@ struct Shader {
             uniforms.emplace(name, location);
             return;
         }
+        if (UNIFORM_DEBUG)
         std::cout << "Error finding uniform: " << name << std::endl;
     }
 
@@ -229,6 +238,7 @@ struct Shader {
             uniforms.emplace(name, location);
             return;
         }
+        if (UNIFORM_DEBUG)
         std::cout << "Error finding uniform: " << name << std::endl;
     }
 
@@ -246,6 +256,7 @@ struct Shader {
             uniforms.emplace(name, location);
             return;
         }
+        if (UNIFORM_DEBUG)
         std::cout << "Error finding uniform: " << name << std::endl;
     }
 
@@ -262,6 +273,7 @@ struct Shader {
             uniforms.emplace(name, location);
             return;
         }
+        if (UNIFORM_DEBUG)
         std::cout << "Error finding uniform: " << name << std::endl;
     }
 
@@ -278,6 +290,7 @@ struct Shader {
             uniforms.emplace(name, location);
             return;
         }
+        if (UNIFORM_DEBUG)
         std::cout << "Error finding uniform: " << name << std::endl;
     }
 
@@ -294,6 +307,7 @@ struct Shader {
             uniforms.emplace(name, location);
             return;
         }
+        if (UNIFORM_DEBUG)
         std::cout << "Error finding uniform: " << name << std::endl;
     }
 };

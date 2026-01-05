@@ -30,6 +30,7 @@ void processMouseScroll(CameraComponent& camera, float yoffset)
 void updateProjectionMatrix(CameraComponent& camera, uint32_t windowWidth, uint32_t windowHeight) {
     camera.projectionMatrix = glm::perspective(glm::radians(camera.zoom), (float)windowWidth / (float)windowHeight,
         camera.nearPlane, camera.farPlane);
+    updateViewProjectionMatrix(camera);
 }
 
 // Maybe constrain pitch should be a camera member
@@ -56,4 +57,33 @@ void processMouseMovement(CameraComponent& camera, float xoffset, float yoffset,
 
 void updateViewMatrix(CameraComponent& camera) {
     camera.viewMatrix = glm::lookAt(camera.position, camera.position + camera.front, camera.up);
+    updateViewProjectionMatrix(camera);
+}
+
+void updateViewProjectionMatrix(CameraComponent& camera) {
+    camera.viewProjectionMatrix = camera.projectionMatrix * camera.viewMatrix;
+    updateFrustumPlanes(camera);
+}
+
+void updateFrustumPlanes(CameraComponent& camera) {
+    const glm::mat4& vp = camera.viewProjectionMatrix;
+
+    // TODO: CHECK PERFORMANCNE OF THIS
+    glm::vec4 row0 = glm::vec4(vp[0][0], vp[1][0], vp[2][0], vp[3][0]);
+    glm::vec4 row1 = glm::vec4(vp[0][1], vp[1][1], vp[2][1], vp[3][1]);
+    glm::vec4 row2 = glm::vec4(vp[0][2], vp[1][2], vp[2][2], vp[3][2]);
+    glm::vec4 row3 = glm::vec4(vp[0][3], vp[1][3], vp[2][3], vp[3][3]);
+
+    camera.frustumPlanes[0] = row3 + row0; // Left
+    camera.frustumPlanes[1] = row3 - row0; // Right
+    camera.frustumPlanes[2] = row3 + row1; // Bottom
+    camera.frustumPlanes[3] = row3 - row1; // Top
+    camera.frustumPlanes[4] = row3 + row2; // Near
+    camera.frustumPlanes[5] = row3 - row2; // Far
+
+    for (int i = 0; i < 6; i++) {
+        glm::vec4& plane = camera.frustumPlanes[i];
+        float invLength = 1.0f / sqrt(plane.x * plane.x + plane.y * plane.y + plane.z * plane.z);
+        plane *= invLength;
+    }
 }

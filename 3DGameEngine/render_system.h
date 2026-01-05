@@ -1,6 +1,6 @@
 #pragma once
 #include <glad/glad.h>
-#include <cstdint>  // for uint32_t
+#include <cstdint>
 #include "shader_s.h"
 #include "window.h"
 #include "ecs.h"
@@ -13,7 +13,14 @@ struct Framebuffer {
     Shader shader;
 };
 
-Framebuffer createFrameBuffer(Shader& framebufferShader, uint32_t width, uint32_t height);
+Framebuffer createFrameBuffer(const Shader& framebufferShader, const uint32_t width, const uint32_t height);
+glm::mat4 buildTransformMatrix(const glm::vec3& position, const glm::vec3& scale, const glm::quat& rotation);
+void performFrustumCulling(const std::vector<uint32_t>& renderableEntities,
+                           const SparseSet<TransformComponent>& transformSet,
+                           const SparseSet<MeshData>& meshSet,
+                           const SparseSet<SkyboxTag>& skyboxSet,
+                           std::vector<uint32_t>& visibleEntities, 
+                           const glm::vec4* frustumPlanes);
 
 class RenderSystem {
 public:
@@ -21,6 +28,7 @@ public:
     void renderScene(ECS& scene);
     Shader framebufferShader;
     Framebuffer framebuffer;
+    
 
 private:
     void initOpenglState();
@@ -28,4 +36,5 @@ private:
 
     Window window;
     GLuint quadVAO;
+    std::vector<uint32_t> renderQueue;
 };

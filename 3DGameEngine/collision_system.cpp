@@ -17,13 +17,13 @@ void CollisionSystem::updateVelocity(float deltaTime)
         auto &boundingBox = scene.collisionSet.getComponent(entity);
         auto &velocity = scene.velocitySet.getComponent(entity);
 
-        glm::vec3 currentPos = glm::vec3(transform.transform[3]);
+        glm::vec3 currentPos = transform.position;
         glm::vec3 adjustedVelocity = velocity.velocity;
 
         for (uint32_t j = 0; j < collisionSetSize; j++) {
             uint32_t obstacleEntity = collisionEntities[j];
             if (entity != obstacleEntity) {
-                glm::vec3 obstaclePos = glm::vec3(scene.transformSet.getComponent(obstacleEntity).transform[3]);
+                glm::vec3 obstaclePos = glm::vec3(scene.transformSet.getComponent(obstacleEntity).position);
                 CollisionComponent &obstacleBox = scene.collisionSet.getComponent(obstacleEntity);
 
                 glm::vec3 testPos = currentPos + glm::vec3(adjustedVelocity.x, 0, 0) * deltaTime;

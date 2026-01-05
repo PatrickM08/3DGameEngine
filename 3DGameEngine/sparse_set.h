@@ -26,6 +26,13 @@ public:
 		return denseIndex < dense.size() && entities[denseIndex] == entityID;
 	}
 
+	// Read component
+	const Component& getComponent(uint32_t entityID) const {
+        uint32_t denseIndex = sparse[entityID];
+        return dense[denseIndex];
+    }
+
+	// Write to component
 	Component& getComponent(uint32_t entityID) {
 		uint32_t denseIndex = sparse[entityID];
 		return dense[denseIndex];
@@ -80,6 +87,12 @@ public:
 		uint32_t denseIndex = sparsePages[pageIndex]->data[entityID % PAGE_SIZE];
 		return denseIndex != UINT32_MAX && denseIndex < dense.size() && entities[denseIndex] == entityID;
 	}
+
+	const Component& getComponent(uint32_t entityID) const {
+        uint32_t pageIndex = entityID / PAGE_SIZE;
+        uint32_t denseIndex = sparsePages[pageIndex]->data[entityID % PAGE_SIZE];
+        return dense[denseIndex];
+    }
 
 	Component& getComponent(uint32_t entityID) {
         uint32_t pageIndex = entityID / PAGE_SIZE;

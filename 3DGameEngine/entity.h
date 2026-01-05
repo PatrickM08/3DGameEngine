@@ -7,11 +7,11 @@ struct Entity {
     uint32_t id;
 };
 
+// It would be better if these were seperate - at least scale, because its just taking up room in cache thats hardly used.
 struct TransformComponent {
-    glm::mat4 transform = glm::mat4(1.0f);
     glm::vec3 position = glm::vec3(0, 0, 0);
-    glm::vec3 scale = glm::vec3(1, 1, 1);
     glm::quat rotation = glm::quat(1, 0, 0, 0);
+    glm::vec3 scale = glm::vec3(1, 1, 1);
 };
 
 struct InstancedComponent {

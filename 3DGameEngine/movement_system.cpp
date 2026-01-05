@@ -94,14 +94,11 @@ void MovementSystem::updateTransforms(float deltaTime) {
 		auto& transform = scene.transformSet.getComponent(entity);
 		auto& velocity = scene.velocitySet.getComponent(entity);
 
-		glm::vec3 position = glm::vec3(transform.transform[3]);
-		position += velocity.velocity * deltaTime;
+		transform.position += velocity.velocity * deltaTime;
 
-		transform.transform = glm::translate(glm::mat4(1.0f), position)
-			* glm::mat4_cast(transform.rotation);
 		if (scene.cameraSet.hasComponent(entity)) {
 			CameraComponent& camera = scene.cameraSet.getComponent(entity);
-			updateCameraPosition(camera, position);
+			updateCameraPosition(camera, transform.position);
 			updateViewMatrix(camera);
 		}
 	}

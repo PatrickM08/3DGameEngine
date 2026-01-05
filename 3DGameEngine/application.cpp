@@ -10,7 +10,7 @@ Application::Application()
       deltaTime(0.0f), lastFrame(0.0f), scene(), movementSystem(scene),
       worldSpaceInputSystem(scene), tankInputSystem(scene),
       noClipInputSystem(scene), patrolSystem(scene), collisionSystem(scene),
-      inputDirection(glm::vec3(0.0f, 0.0f, 0.0f)), luaInterface(scene) {}
+      inputDirection(glm::vec3(0.0f, 0.0f, 0.0f)) {}
 
 int Application::run() {
     while (!glfwWindowShouldClose(windowPtr)) {
