@@ -15,7 +15,9 @@ RenderSystem::RenderSystem(Window& window)
     : window(window),
       framebufferShader("fb_vertex_shader.vs", "fb_fragment_shader.fs"),
       framebuffer(createFrameBuffer(framebufferShader, window.width, window.height)),
-      quadVAO(createQuad()) {
+      quadVAO(createQuad()),
+      sceneUBO(createSceneUBO()),
+      lightSSBO(createLightSSBO()) {
     initOpenglState();
 }
 
@@ -25,17 +27,25 @@ void RenderSystem::renderScene(ECS& scene) {
     CameraComponent& camera = scene.cameraSet.getComponent(scene.cameraSet.getEntities()[0]);
     std::vector<uint32_t>& visibleEntities = scene.visibleEntities;
     // TODO: DONT FORGET TO REMOVE THIS - and look into iostream usage throughout, including exceptions.
-    static std::vector<uint32_t> prevVE;
+    static size_t prevVE;
     // TODO: MAKE FRUSTUM CULLLING OPTIONAL
     performFrustumCulling(scene.renderableSet.getEntities(), scene.transformSet, scene.meshSet, scene.skyboxSet, visibleEntities, camera.frustumPlanes);
-    if (prevVE != visibleEntities) {
-        std::cout << "Visible entities changed! Count: " << visibleEntities.size() << "\n";
-        for (auto i : visibleEntities) {
-            std::cout << i << " ";
-        }
+    
+    std::vector<PackedLightData>& visiblePointLights = scene.visiblePointLights;
+    performLightCulling(scene.pointLightSet, scene.transformSet, visiblePointLights, camera.frustumPlanes);
+    if (prevVE != visiblePointLights.size()) {
+        std::cout << "Visible lights changed! Count: " << visiblePointLights.size();
         std::cout << std::endl;
     }
-    prevVE = visibleEntities;
+    prevVE = visiblePointLights.size();
+    uploadLightSSBO(lightSSBO, visiblePointLights);
+    SceneUBOData sceneData = {
+        .viewMatrix = camera.viewMatrix,
+        .projectionMatrix = camera.projectionMatrix,
+        .cameraPosition = camera.position,
+        .pointLightCount = static_cast<uint32_t>(visiblePointLights.size())
+    };
+    uploadSceneUBO(sceneUBO, sceneData);
     for (uint32_t entity : visibleEntities) {
         MaterialData& material = scene.materialSet.getComponent(entity);
         MeshData& mesh = scene.meshSet.getComponent(entity);
@@ -43,18 +53,14 @@ void RenderSystem::renderScene(ECS& scene) {
         glm::mat4 transformMatrix = buildTransformMatrix(transform.position, transform.scale, transform.rotation);
         material.shader.use();
         // TODO: This needs to be looked at - it would be more efficient to use a cached VP matrix but I don't know if that would cause issues later.
-        material.shader.setMat4Uniform("projection", camera.projectionMatrix);
         if (scene.skyboxSet.hasComponent(entity)) {
-            glm::mat4 skyboxViewMatrix(glm::mat3(camera.viewMatrix));
-            material.shader.setMat4Uniform("view", skyboxViewMatrix);
             glDepthFunc(GL_LEQUAL);
         } else {
-            material.shader.setMat4Uniform("view", camera.viewMatrix);
             material.shader.setMat4Uniform("model", transformMatrix);
-            material.shader.setVec3Uniform("cameraPos", camera.position);
         }
         glBindVertexArray(mesh.vao);
         for (int i = 0; i < material.textures.size(); i++) {
+            // TODO: LOOK INTO BINDLESS TEXTURES
             glActiveTexture(GL_TEXTURE0 + i);
             glBindTexture(material.textures[i].target, material.textures[i].id);
         }
@@ -105,6 +111,30 @@ GLuint RenderSystem::createQuad() {
     return quadVAO;
 }
 
+GLuint RenderSystem::createLightSSBO() {
+    GLuint lightSSBO;
+    glGenBuffers(1, &lightSSBO);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightSSBO);
+
+    // TODO: CHANGE WHERE THIS BELONGS - NEEDS TO BE A MODIFIABLE.
+    uint32_t maxLights = 256;
+    glBufferData(GL_SHADER_STORAGE_BUFFER, maxLights * sizeof(PackedLightData), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, lightSSBO);
+
+    return lightSSBO;
+}
+
+GLuint RenderSystem::createSceneUBO() {
+    GLuint sceneUBO;
+    glGenBuffers(1, &sceneUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, sceneUBO);
+
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(SceneUBOData), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, sceneUBO);
+
+    return sceneUBO;
+}
+
 Framebuffer createFrameBuffer(const Shader& framebufferShader, const uint32_t width, const uint32_t height) {
     unsigned int framebuffer;
     glGenFramebuffers(1, &framebuffer);
@@ -148,7 +178,7 @@ glm::mat4 buildTransformMatrix(const glm::vec3& position, const glm::vec3& scale
 }
 
 void performFrustumCulling(const std::vector<uint32_t>& renderableEntities,
-                           const SparseSet<TransformComponent>& transformSet, // All renderable entities will have a transform.
+                           const SparseSet<TransformComponent>& transformSet,
                            const SparseSet<MeshData>& meshSet,
                            const SparseSet<SkyboxTag>& skyboxSet,
                            std::vector<uint32_t>& visibleEntities,
@@ -208,4 +238,44 @@ void performFrustumCulling(const std::vector<uint32_t>& renderableEntities,
             visibleEntities.push_back(entity);
         }
     }
+}
+
+void performLightCulling(const SparseSet<PointLightComponent>& pointLightEntities,
+                         const SparseSet<TransformComponent>& transformSet,
+                         std::vector<PackedLightData>& visiblePointLights,
+                         const glm::vec4* frustumPlanes) {
+
+    visiblePointLights.clear();
+
+    for (uint32_t entity : pointLightEntities.getEntities()) {
+        const auto& light = pointLightEntities.getComponent(entity);
+        const auto& transform = transformSet.getComponent(entity);
+
+        bool isInside = true;
+
+        for (int i = 0; i < 6; ++i) {
+            float distance = glm::dot(glm::vec3(frustumPlanes[i]), transform.position) + frustumPlanes[i].w;
+
+            if (distance < -light.radius) {
+                isInside = false;
+                break;
+            }
+        }
+
+        if (isInside) {
+            visiblePointLights.emplace_back(glm::vec4(light.colour, light.intensity), glm::vec4(transform.position, light.radius));
+        }
+    }
+}
+
+void uploadLightSSBO(const GLuint lightSSBO, const std::vector<PackedLightData>& visiblePointLights) {
+    if (visiblePointLights.size() == 0) return;
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightSSBO);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, visiblePointLights.size() * sizeof(PackedLightData), visiblePointLights.data());
+}
+
+void uploadSceneUBO(const GLuint sceneUBO, const SceneUBOData sceneData) {
+    glBindBuffer(GL_UNIFORM_BUFFER, sceneUBO);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SceneUBOData), &sceneData);
 }

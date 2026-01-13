@@ -70,7 +70,6 @@ public:
     AssetManager assetManager;
 
     std::unordered_map<std::string, EntityTemplate> entityTemplates;
-    std::vector<glm::vec3> pointLightPositions;
 
     static constexpr uint32_t MAX_ENTITIES = 2000000;
     uint32_t entityCount;
@@ -95,6 +94,8 @@ public:
     SparseSet<CollisionComponent> collisionSet;
     SparseSet<RenderableTag> renderableSet;
     SparseSet<CameraComponent> cameraSet;
+    SparseSet<PointLightComponent> pointLightSet;
 
     std::vector<uint32_t> visibleEntities;
+    std::vector<PackedLightData> visiblePointLights;
 };

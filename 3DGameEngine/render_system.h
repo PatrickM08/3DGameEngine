@@ -13,6 +13,13 @@ struct Framebuffer {
     Shader shader;
 };
 
+struct SceneUBOData {
+    glm::mat4 viewMatrix;
+    glm::mat4 projectionMatrix;
+    glm::vec3 cameraPosition;
+    uint32_t pointLightCount;
+};
+
 Framebuffer createFrameBuffer(const Shader& framebufferShader, const uint32_t width, const uint32_t height);
 glm::mat4 buildTransformMatrix(const glm::vec3& position, const glm::vec3& scale, const glm::quat& rotation);
 void performFrustumCulling(const std::vector<uint32_t>& renderableEntities,
@@ -22,6 +29,15 @@ void performFrustumCulling(const std::vector<uint32_t>& renderableEntities,
                            std::vector<uint32_t>& visibleEntities, 
                            const glm::vec4* frustumPlanes);
 
+void performLightCulling(const SparseSet<PointLightComponent>& pointLightEntities,
+                         const SparseSet<TransformComponent>& transformSet,
+                         std::vector<PackedLightData>& visiblePointLights,
+                         const glm::vec4* frustumPlanes);
+
+void uploadLightSSBO(const GLuint lightSSBO, const std::vector<PackedLightData>& lightData);
+void uploadSceneUBO(const GLuint sceneUBO, const SceneUBOData sceneData);
+
+// TODO: NEED TO SEE WHETHER THIS STATE IS ACCEPTABLE FOR DLL
 class RenderSystem {
 public:
     RenderSystem(Window& window);
@@ -29,12 +45,14 @@ public:
     Shader framebufferShader;
     Framebuffer framebuffer;
     
-
 private:
     void initOpenglState();
     GLuint createQuad();
+    GLuint createSceneUBO();
+    GLuint createLightSSBO();
 
     Window window;
     GLuint quadVAO;
-    std::vector<uint32_t> renderQueue;
+    GLuint sceneUBO;
+    GLuint lightSSBO;
 };

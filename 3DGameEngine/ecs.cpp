@@ -18,7 +18,8 @@ ComponentBlob::ComponentBlob(ComponentBlob&& other) noexcept
 ECS::ECS() {
     entityCount = 0;
     entityTemplates.reserve(10);
-    visibleEntities.reserve(2000000);
+    visibleEntities.reserve(2000000); // The maximum number of entities that can be rendered per pass.
+    visiblePointLights.reserve(256); // The maximum number of lights that can influence the view frustum.
     parseEntityTemplateFile();
     parseSceneFile();
 }
@@ -87,18 +88,6 @@ void ECS::useEntityTemplate(const std::string& entityName) {
             }
             material.shader.setFloatUniform("shininess", material.shininess);
             material.shader.setMat3Uniform("normalMatrix", glm::mat3(glm::transpose(glm::inverse(glm::mat4(1.0f)))));
-            material.shader.setIntUniform("numberOfPointLights", pointLightPositions.size());
-
-            for (int i = 0; i < pointLightPositions.size(); i++) {
-                std::string index = std::to_string(i);
-                material.shader.setVec3Uniform("pointLights[" + index + "].position", pointLightPositions[i]);
-                material.shader.setVec3Uniform("pointLights[" + index + "].ambient", material.ambient);
-                material.shader.setVec3Uniform("pointLights[" + index + "].diffuse", material.diffuse);
-                material.shader.setVec3Uniform("pointLights[" + index + "].specular", material.specular);
-                material.shader.setFloatUniform("pointLights[" + index + "].constant", 1.0f);
-                material.shader.setFloatUniform("pointLights[" + index + "].linear", 0.09f);
-                material.shader.setFloatUniform("pointLights[" + index + "].quadratic", 0.032f);
-            }
 
             materialSet.add(entityCount, material);
         } else if (*blob.typeInfo == typeid(RenderableTag)) {
@@ -133,15 +122,20 @@ void ECS::parseSceneFile() {
         std::string prefix;
         stream >> prefix;
         if (prefix == "pointlight") {
+            ++entityCount;
             glm::vec3 pos;
             stream >> pos.x >> pos.y >> pos.z;
-            pointLightPositions.push_back(pos);
+            // TODO: FIX THIS
+            TransformComponent transform;
+            transform.position = glm::vec3(pos.x, pos.y, pos.z);
+            transformSet.add(entityCount, transform);
+            pointLightSet.add(entityCount, PointLightComponent{});
         } else if (prefix == "entity") {
             ++entityCount; // Entity 0 doesn't exist currently
             std::string entityName;
             stream >> entityName;
             useEntityTemplate(entityName);
-        } else if (prefix == "pos") {
+        } else if (prefix == "pos") { // TODO: FIX THIS
             glm::vec3 spawnPosition;
             stream >> spawnPosition.x >> spawnPosition.y >> spawnPosition.z;
             if (!transformSet.hasComponent(entityCount)) {

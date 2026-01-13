@@ -7,7 +7,20 @@ struct Entity {
     uint32_t id;
 };
 
-// It would be better if these were seperate - at least scale, because its just taking up room in cache thats hardly used.
+// TODO: SEEMS A BIT WASTEFUL TO HAVE THIS AND PACKEDLIGHTDATA, CHECK NECESSITY
+struct PointLightComponent {
+    glm::vec3 colour = glm::vec3(1, 1, 1);
+    float intensity = 1.0f;
+    float radius = 10.0f;
+};
+
+// TODO: THIS MIGHT NOT BELONG HERE, COULD PACK COLOUR FURTHER USING BIT SHIFTING
+struct PackedLightData {
+    glm::vec4 colourAndIntensity;
+    glm::vec4 positionAndRadius;
+};
+
+// TODO: It would be better if these were seperate - at least scale, because its just taking up room in cache thats hardly used.
 struct TransformComponent {
     glm::vec3 position = glm::vec3(0, 0, 0);
     glm::quat rotation = glm::quat(1, 0, 0, 0);
