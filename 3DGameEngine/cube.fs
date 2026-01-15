@@ -50,7 +50,7 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, v
     // specular shading
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
-    // attenuation
+    // attenuation - PROBLEMS HERE FIGURE OUT - THE AMBIENT SHOULD PROBABLY BE WITHOUT ATTENUTATION ITS WHAT IT IS REGARDLESS
     float distance = length(lightPosition - fragPos);
     float ratio = clamp(distance / lightRadius, 0.0, 1.0);
     float attenuation = (1.0 - ratio * ratio);

@@ -8,7 +8,7 @@
 material 0 vshader.vs fshader.fs
 
 material 1 cube.vs cube.fs
-lit   0.2,0.2,0.2   0.5,0.5,0.5   1.0,1.0,1.0   32.0
+lit 32.0
 textures   container2.png,GL_TEXTURE_2D   container2_specular.png,GL_TEXTURE_2D
 
 material 2 skybox.vs skybox.fs

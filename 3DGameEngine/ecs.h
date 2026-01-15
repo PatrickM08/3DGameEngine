@@ -99,3 +99,5 @@ public:
     std::vector<uint32_t> visibleEntities;
     std::vector<PackedLightData> visiblePointLights;
 };
+
+void init(ECS& scene);

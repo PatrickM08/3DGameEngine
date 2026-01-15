@@ -13,6 +13,7 @@ Application::Application()
       inputDirection(glm::vec3(0.0f, 0.0f, 0.0f)) {}
 
 int Application::run() {
+    init(scene);
     while (!glfwWindowShouldClose(windowPtr)) {
         updateTiming();
 

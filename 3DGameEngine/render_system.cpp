@@ -49,13 +49,13 @@ void RenderSystem::renderScene(ECS& scene) {
     for (uint32_t entity : visibleEntities) {
         MaterialData& material = scene.materialSet.getComponent(entity);
         MeshData& mesh = scene.meshSet.getComponent(entity);
-        TransformComponent& transform = scene.transformSet.getComponent(entity);
-        glm::mat4 transformMatrix = buildTransformMatrix(transform.position, transform.scale, transform.rotation);
         material.shader.use();
         // TODO: This needs to be looked at - it would be more efficient to use a cached VP matrix but I don't know if that would cause issues later.
         if (scene.skyboxSet.hasComponent(entity)) {
             glDepthFunc(GL_LEQUAL);
         } else {
+            TransformComponent& transform = scene.transformSet.getComponent(entity);
+            glm::mat4 transformMatrix = buildTransformMatrix(transform.position, transform.scale, transform.rotation);
             material.shader.setMat4Uniform("model", transformMatrix);
         }
         glBindVertexArray(mesh.vao);

@@ -6,12 +6,9 @@
 #include <GLFW/glfw3.h>
 #include "shader_s.h"
 
-class Texture {
-public:
+struct Texture {
 	GLuint id;
 	GLenum target;
-public:
-	
 };
 
 struct AABB {
@@ -28,19 +25,15 @@ struct MeshData {
 
 struct MaterialData {
 	uint32_t handle;
-	Shader shader;
-	glm::vec3 ambient, diffuse, specular;
+    Shader shader;
 	float shininess;
 	std::vector<Texture> textures;
 };
 
 std::string getPath(const std::string &relativePath);
+MeshData createUnitCubePrimitive(std::vector<MeshData>& meshes);
 
 class AssetManager {
-private:
-	std::vector<MeshData> meshes;
-	std::vector<MaterialData> materials;
-
 private:
 	std::vector<MeshData> loadMeshes(const char*);
 	std::vector<MaterialData> loadMaterials(const char* path);
@@ -52,4 +45,6 @@ public:
 	AssetManager();
 	const MeshData& getMesh(uint32_t handle);
 	MaterialData& getMaterial(uint32_t handle);
+    std::vector<MeshData> meshes;
+    std::vector<MaterialData> materials;
 };

@@ -82,15 +82,6 @@ std::vector<float> AssetManager::parseOBJFile(const std::string& path, uint32_t&
             index_offset += fv;
         }
     }
-    int count = 0;
-    for (float i : vertices) {
-        if (count % 8 == 0) {
-            std::cout << "\n";
-        }
-        std::cout << i << " ";
-        count++;
-    }
-    std::cout << std::endl;
     return vertices;
 }
 
@@ -251,13 +242,7 @@ std::vector<MaterialData> AssetManager::loadMaterials(const char* path) {
         } else if (prefix == "lit") {
             if (!materials.empty()) {
                 auto& material = materials.back();
-                std::string restOfLine;
-                std::getline(stream, restOfLine);
-                std::replace(restOfLine.begin(), restOfLine.end(), ',', ' ');
-                std::istringstream lightStream(restOfLine);
-                lightStream >> material.ambient.x >> material.ambient.y >> material.ambient.z >> 
-                material.diffuse.x >> material.diffuse.y >> material.diffuse.z >> material.specular.x >> 
-                material.specular.y>> material.specular.z>> material.shininess;
+                stream >> material.shininess;
             }
         } else if (prefix == "textures") {
             if (!materials.empty()) {
@@ -368,4 +353,59 @@ const MeshData& AssetManager::getMesh(uint32_t handle) {
 
 MaterialData& AssetManager::getMaterial(uint32_t handle) {
     return materials[handle];
+}
+
+// TODO: UNBIND AFTER MESH AND TEXTURE STUFF
+// TODO: CHANGE VERTEX COUNT TO INDEX COUNT
+// TODO: CHANGE THE MESH AND MATERIAL DATA HANDLES TO 16 BIT
+// TODO: FIX THE LOCALAABB AND WORLD AABB
+// TODO: Figure out if this is correct - so we should have unit primitives lazy loaded in the asset manager but we need to improve the asset manager
+// we also need to look into gl_vertexID usage, we also need to look into deleting buffers when no longer used.
+// Assumes centre as actual position
+// TODO: PRIMITIVES RIGHT NOW ARE THE ONLY THING USING EBOS AND VERTEX COUNT IS ACTUALLY INDEX COUNT, WILL FIX AFTER WE FIX ASSET LOADING
+MeshData createUnitCubePrimitive(std::vector<MeshData>& meshes) {
+    float xOffset = 0.5f;
+    float yOffset = 0.5f;
+    float zOffset = 0.5f;
+    float vertices[24] = {-xOffset, -yOffset, zOffset,
+                          xOffset, -yOffset, zOffset,
+                          xOffset, yOffset, zOffset,
+                          -xOffset, yOffset, zOffset,
+                          -xOffset, -yOffset, -zOffset,
+                          xOffset, -yOffset, -zOffset,
+                          xOffset, yOffset, -zOffset,
+                          -xOffset, yOffset, -zOffset};
+
+    unsigned int indices[36] = {0, 1, 2, 2, 3, 0,
+                              1, 5, 6, 6, 2, 1,
+                              7, 6, 5, 5, 4, 7,
+                              4, 0, 3, 3, 7, 4,
+                              4, 5, 1, 1, 0, 4,
+                              3, 2, 6, 6, 7, 3};
+    GLuint VAO, VBO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    // TODO: THIS WOULD HAVE TO BE CHANGED DEPENDING ON THE SHADER AND NORMALS AND STUFF - SHOULD PROBABLY BE STANDARDISED - ALSO SEE IF SHOULD BE STATIC
+    glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(float), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    uint32_t numberOfMeshes = static_cast<uint32_t>(meshes.size());
+    // TODO: LOOK INTO HOW THIS IS USED - NEEDS TO BE CACHED AND THEN RETRIEVED WHEN CALLED - THIS CREATES UNNECESARRY COPIES
+    MeshData meshData{
+        .handle = numberOfMeshes, .vao = VAO, .vertexCount = 36, .localAABB = AABB{-xOffset, -yOffset, -zOffset, xOffset, yOffset, zOffset}};
+    meshes.push_back(meshData);
+    return meshData;
 }

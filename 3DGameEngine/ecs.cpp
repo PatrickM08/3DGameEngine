@@ -20,8 +20,8 @@ ECS::ECS() {
     entityTemplates.reserve(10);
     visibleEntities.reserve(2000000); // The maximum number of entities that can be rendered per pass.
     visiblePointLights.reserve(256); // The maximum number of lights that can influence the view frustum.
-    parseEntityTemplateFile();
-    parseSceneFile();
+    //parseEntityTemplateFile();
+    //parseSceneFile();
 }
 
 void ECS::parseEntityTemplateFile() {
@@ -179,15 +179,17 @@ void ECS::parseSceneFile() {
             std::string algorithmName;
             stream >> algorithmName;
             if (algorithmName == "grid") {
-                const int NUM_BOXES = 1024;
+                const int NUM_BOXES = 32768;
                 int index = 0;
                 glm::vec3 translations[NUM_BOXES];
                 for (int i = 0; i < 32; i++) {
                     for (int j = 0; j < 32; j++) {
-                        translations[index].x = i * 2;
-                        translations[index].y = 0;
-                        translations[index].z = -j * 2;
-                        index++;
+                        for (int k = 0; k < 32; k++) {
+                            translations[index].x = i * 2;
+                            translations[index].y = k * 2;
+                            translations[index].z = -j * 2;
+                            index++;
+                        }
                     }
                 }
 
@@ -204,4 +206,58 @@ void ECS::parseSceneFile() {
             }
         }
     }
+}
+
+
+
+void init(ECS& scene) {
+    uint32_t entityCount = 0;
+    scene.skyboxSet.add(entityCount, SkyboxTag{});
+    scene.meshSet.add(entityCount, scene.assetManager.getMesh(2));
+    scene.materialSet.add(entityCount, scene.assetManager.getMaterial(2));
+    scene.renderableSet.add(entityCount, RenderableTag{});
+
+    ++entityCount;
+    scene.meshSet.add(entityCount, scene.assetManager.getMesh(1));
+    scene.materialSet.add(entityCount, scene.assetManager.getMaterial(0));
+    scene.velocitySet.add(entityCount, VelocityComponent{glm::vec3(0.0f)});
+    scene.speedSet.add(entityCount, SpeedComponent{5.0f});
+    scene.transformSet.add(entityCount, TransformComponent{glm::vec3(0.0f, 0.0f, 0.0f)});
+    scene.inputNoClipSet.add(entityCount, PlayerInputNoClipTag{});
+    scene.pointLightSet.add(entityCount, PointLightComponent{.colour = glm::vec3(1.0f), .intensity = 1.0f, .radius = 10.0f});
+
+    CameraComponent camera{
+        .positionOffset = glm::vec3(0.0f),
+        .position = glm::vec3(0.0f, 0.0f, 0.0f),
+        .worldUp = glm::vec3(0, 1, 0),
+        .yaw = -45.0f,
+        .pitch = -90.0f,
+        .cameraType = CameraType::MOUSETURN};
+
+    updateCameraVectors(camera);
+    scene.cameraSet.add(entityCount, camera);
+
+    ++entityCount;
+    scene.meshSet.add(entityCount, scene.assetManager.getMesh(0));
+    scene.materialSet.add(entityCount, scene.assetManager.getMaterial(0));
+    scene.renderableSet.add(entityCount, RenderableTag{});
+    // TODO: THESE SRE NECESSARY FOR COLLISION OBJECTS - MAYBE SHOULD DISTINGUISH
+    scene.transformSet.add(entityCount, TransformComponent{glm::vec3(-20, 0, 20)});
+
+    ++entityCount;
+    scene.meshSet.add(entityCount, scene.assetManager.getMesh(1));
+    scene.materialSet.add(entityCount, scene.assetManager.getMaterial(1));
+    scene.renderableSet.add(entityCount, RenderableTag{});
+    scene.velocitySet.add(entityCount, VelocityComponent{glm::vec3(0.0f)});
+    scene.speedSet.add(entityCount, SpeedComponent{5.0f});
+    scene.transformSet.add(entityCount, TransformComponent{glm::vec3(0.0f, 0.5f, 0.0f)});
+
+    ++entityCount;
+    // TODO: THIS NEEDS TO BE CHANGED HOW THE PRIMITIVES ARE USED
+    scene.meshSet.add(entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
+    scene.materialSet.add(entityCount, scene.assetManager.getMaterial(0));
+    scene.renderableSet.add(entityCount, RenderableTag{});
+    scene.velocitySet.add(entityCount, VelocityComponent{glm::vec3(0.0f)});
+    scene.speedSet.add(entityCount, SpeedComponent{5.0f});
+    scene.transformSet.add(entityCount, TransformComponent{glm::vec3(5.0f, 0.5f, 0.0f)});
 }

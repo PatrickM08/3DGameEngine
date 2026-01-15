@@ -9,10 +9,11 @@ layout (std140, binding = 0) uniform SceneData{
 } sceneData;
 
 uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
+
+out vec3 fragPos;
 
 void main()
 {   
-    gl_Position = sceneData.projectionMatrix * sceneData.viewMatrix * model * vec4(aPos, 1.0);
+    fragPos = vec3(model * vec4(aPos,1.0));
+    gl_Position = sceneData.projectionMatrix * sceneData.viewMatrix * vec4(fragPos, 1.0);
 }
