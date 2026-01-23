@@ -10,7 +10,7 @@ struct Framebuffer {
     GLuint textureAttachment;
     GLuint renderBufferObject;
     uint32_t width, height;
-    Shader shader;
+    uint32_t shaderID;
 };
 
 struct SceneUBOData {
@@ -20,7 +20,8 @@ struct SceneUBOData {
     uint32_t pointLightCount;
 };
 
-Framebuffer createFrameBuffer(const Shader& framebufferShader, const uint32_t width, const uint32_t height);
+// TODO: THE CONST-CORRECTNESS HERE IS UNNECSSARY - NOT SURE IF I LIKE IT
+Framebuffer createFrameBuffer(const uint32_t frambufferShaderID, const uint32_t width, const uint32_t height);
 glm::mat4 buildTransformMatrix(const glm::vec3& position, const glm::vec3& scale, const glm::quat& rotation);
 void performFrustumCulling(const std::vector<uint32_t>& renderableEntities,
                            const SparseSet<TransformComponent>& transformSet,
@@ -42,7 +43,7 @@ class RenderSystem {
 public:
     RenderSystem(Window& window);
     void renderScene(ECS& scene);
-    Shader framebufferShader;
+    uint32_t framebufferShaderID;
     Framebuffer framebuffer;
     
 private:

@@ -11,215 +11,17 @@
 #include <stdexcept>
 #include "camera.h"
 
-ComponentBlob::ComponentBlob(ComponentBlob&& other) noexcept
-    : typeInfo(other.typeInfo), size(other.size), data(std::move(other.data)) {
-}
-
 ECS::ECS() {
     entityCount = 0;
-    entityTemplates.reserve(10);
     visibleEntities.reserve(2000000); // The maximum number of entities that can be rendered per pass.
     visiblePointLights.reserve(256); // The maximum number of lights that can influence the view frustum.
-    //parseEntityTemplateFile();
-    //parseSceneFile();
 }
-
-void ECS::parseEntityTemplateFile() {
-    std::ifstream file(getPath("entities.txt"));
-    if (!file.is_open()) {
-        throw std::runtime_error("Error opening entity template file.");
-    }
-    std::string line;
-    std::string entityName;
-    while (std::getline(file, line)) {
-        std::istringstream stream(line);
-        std::string prefix;
-        stream >> prefix;
-        if (prefix == "entity") {
-            stream >> entityName;
-            entityTemplates[entityName] = EntityTemplate();
-            entityTemplates[entityName].name = entityName;
-        } else if (prefix == "mesh") {
-            uint32_t meshHandle;
-            stream >> meshHandle;
-            MeshHandleStorage handle{meshHandle};
-            entityTemplates[entityName].components.emplace_back(handle);
-        } else if (prefix == "material") {
-            uint32_t materialHandle;
-            stream >> materialHandle;
-            MaterialHandleStorage handle{materialHandle};
-            entityTemplates[entityName].components.emplace_back(handle);
-        } else if (prefix == "renderable") {
-            entityTemplates[entityName].components.emplace_back(RenderableTag{});
-        } else if (prefix == "transform") {
-            TransformComponent transform{};
-            entityTemplates[entityName].components.emplace_back(transform);
-        } else if (prefix == "skybox") {
-            entityTemplates[entityName].components.emplace_back(SkyboxTag{});
-        } else if (prefix == "velocity") {
-            VelocityComponent velocity{glm::vec3(0.0f, 0.0f, 0.0f)};
-            entityTemplates[entityName].components.emplace_back(velocity);
-        } else if (prefix == "speed") {
-            float sp;
-            stream >> sp;
-            SpeedComponent speed{sp};
-            entityTemplates[entityName].components.emplace_back(speed);
-        } else if (prefix == "rotationSpeed") {
-            float rs;
-            stream >> rs;
-            RotationSpeedComponent rotationSpeed{rs};
-            entityTemplates[entityName].components.emplace_back(rotationSpeed);
-        }
-    }
-}
-
-void ECS::useEntityTemplate(const std::string& entityName) {
-    EntityTemplate& entityTemplate = entityTemplates[entityName];
-    for (auto& blob : entityTemplate.components) {
-        if (*blob.typeInfo == typeid(MeshHandleStorage)) {
-            auto& meshHandleStorage = deserializeBlob<MeshHandleStorage>(blob);
-            meshSet.add(entityCount, assetManager.getMesh(meshHandleStorage.meshHandle));
-        } else if (*blob.typeInfo == typeid(MaterialHandleStorage)) {
-            auto& materialHandleStorage = deserializeBlob<MaterialHandleStorage>(blob);
-            MaterialData& material = assetManager.getMaterial(materialHandleStorage.materialHandle);
-            material.shader.use();
-            for (int i = 0; i < material.textures.size(); i++) {
-                material.shader.setIntUniform("texture" + std::to_string(i), i);
-            }
-            material.shader.setFloatUniform("shininess", material.shininess);
-            material.shader.setMat3Uniform("normalMatrix", glm::mat3(glm::transpose(glm::inverse(glm::mat4(1.0f)))));
-
-            materialSet.add(entityCount, material);
-        } else if (*blob.typeInfo == typeid(RenderableTag)) {
-            renderableSet.add(entityCount, RenderableTag{});
-        } else if (*blob.typeInfo == typeid(TransformComponent)) {
-            auto& transformComponent = deserializeBlob<TransformComponent>(blob);
-            transformSet.add(entityCount, transformComponent);
-        } else if (*blob.typeInfo == typeid(SkyboxTag)) {
-            auto& skyboxTag = deserializeBlob<SkyboxTag>(blob);
-            skyboxSet.add(entityCount, skyboxTag);
-        } else if (*blob.typeInfo == typeid(VelocityComponent)) {
-            auto& velocity = deserializeBlob<VelocityComponent>(blob);
-            velocitySet.add(entityCount, velocity);
-        } else if (*blob.typeInfo == typeid(SpeedComponent)) {
-            auto& speed = deserializeBlob<SpeedComponent>(blob);
-            speedSet.add(entityCount, speed);
-        } else if (*blob.typeInfo == typeid(RotationSpeedComponent)) {
-            auto& rotSpeed = deserializeBlob<RotationSpeedComponent>(blob);
-            rotationSpeedSet.add(entityCount, rotSpeed);
-        }
-    }
-}
-
-void ECS::parseSceneFile() {
-    std::ifstream file(getPath("scene.txt"));
-    if (!file.is_open()) {
-        throw std::runtime_error("Error opening scene file.");
-    }
-    std::string line;
-    while (std::getline(file, line)) {
-        std::istringstream stream(line);
-        std::string prefix;
-        stream >> prefix;
-        if (prefix == "pointlight") {
-            ++entityCount;
-            glm::vec3 pos;
-            stream >> pos.x >> pos.y >> pos.z;
-            // TODO: FIX THIS
-            TransformComponent transform;
-            transform.position = glm::vec3(pos.x, pos.y, pos.z);
-            transformSet.add(entityCount, transform);
-            pointLightSet.add(entityCount, PointLightComponent{});
-        } else if (prefix == "entity") {
-            ++entityCount; // Entity 0 doesn't exist currently
-            std::string entityName;
-            stream >> entityName;
-            useEntityTemplate(entityName);
-        } else if (prefix == "pos") { // TODO: FIX THIS
-            glm::vec3 spawnPosition;
-            stream >> spawnPosition.x >> spawnPosition.y >> spawnPosition.z;
-            if (!transformSet.hasComponent(entityCount)) {
-                transformSet.add(entityCount, TransformComponent{});
-            }
-            auto& transform = transformSet.getComponent(entityCount);
-            transform.position = spawnPosition;
-        } else if (prefix == "playerInputWorld") {
-            inputWorldSet.add(entityCount, PlayerInputWorldTag{});
-        } else if (prefix == "playerInputTank") {
-            inputTankSet.add(entityCount, PlayerInputTankTag{});
-        } else if (prefix == "noClip") {
-            inputNoClipSet.add(entityCount, PlayerInputNoClipTag{});
-        } else if (prefix == "patrol") {
-            PatrolComponent patrol;
-            stream >> patrol.direction.x >> patrol.direction.y >> patrol.direction.z >> patrol.magnitude;
-            patrol.direction = glm::normalize(patrol.direction);
-            patrolSet.add(entityCount, patrol);
-        } else if (prefix == "collision") {
-            CollisionComponent collision;
-            stream >> collision.minX >> collision.maxX >> collision.minY >> collision.maxY >> collision.minZ >> collision.maxZ;
-            collisionSet.add(entityCount, collision);
-        } else if (prefix == "camera") {
-            std::string type;
-            std::string restOfLine;
-            std::getline(stream, restOfLine);
-            std::replace(restOfLine.begin(), restOfLine.end(), ',', ' ');
-            std::istringstream cameraStream(restOfLine);
-            CameraComponent camera;
-            cameraStream >> type >> camera.positionOffset.x >> camera.positionOffset.y >> camera.positionOffset.z >> camera.worldUp.x >> camera.worldUp.y >> camera.worldUp.z >> camera.yaw >> camera.pitch;
-            camera.position = glm::vec3(transformSet.getComponent(entityCount).position) + camera.positionOffset;
-            CameraType cameraType = CameraType::FIXED;
-            if (type == "mouse")
-                cameraType = CameraType::MOUSETURN;
-            else if (type == "fixed")
-                cameraType = CameraType::FIXED;
-            camera.cameraType = cameraType;
-            updateCameraVectors(camera);
-            cameraSet.add(entityCount, camera);
-        } else if (prefix == "algo") {
-            std::string algorithmName;
-            stream >> algorithmName;
-            if (algorithmName == "grid") {
-                const int NUM_BOXES = 32768;
-                int index = 0;
-                glm::vec3 translations[NUM_BOXES];
-                for (int i = 0; i < 32; i++) {
-                    for (int j = 0; j < 32; j++) {
-                        for (int k = 0; k < 32; k++) {
-                            translations[index].x = i * 2;
-                            translations[index].y = k * 2;
-                            translations[index].z = -j * 2;
-                            index++;
-                        }
-                    }
-                }
-
-                glBindVertexArray(meshSet.getComponent(entityCount).vao);
-                GLuint instanceVBO;
-                glGenBuffers(1, &instanceVBO);
-                glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * NUM_BOXES, translations, GL_STATIC_DRAW);
-                glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-                glEnableVertexAttribArray(3);
-                glVertexAttribDivisor(3, 1);
-
-                instancedSet.add(entityCount, InstancedComponent{NUM_BOXES});
-            }
-        }
-    }
-}
-
-
 
 void init(ECS& scene) {
     uint32_t entityCount = 0;
-    scene.skyboxSet.add(entityCount, SkyboxTag{});
-    scene.meshSet.add(entityCount, scene.assetManager.getMesh(2));
-    scene.materialSet.add(entityCount, scene.assetManager.getMaterial(2));
-    scene.renderableSet.add(entityCount, RenderableTag{});
 
     ++entityCount;
-    scene.meshSet.add(entityCount, scene.assetManager.getMesh(1));
-    scene.materialSet.add(entityCount, scene.assetManager.getMaterial(0));
+    scene.meshSet.add(entityCount, scene.assetManager.meshes[1]);
     scene.velocitySet.add(entityCount, VelocityComponent{glm::vec3(0.0f)});
     scene.speedSet.add(entityCount, SpeedComponent{5.0f});
     scene.transformSet.add(entityCount, TransformComponent{glm::vec3(0.0f, 0.0f, 0.0f)});
@@ -238,15 +40,15 @@ void init(ECS& scene) {
     scene.cameraSet.add(entityCount, camera);
 
     ++entityCount;
-    scene.meshSet.add(entityCount, scene.assetManager.getMesh(0));
-    scene.materialSet.add(entityCount, scene.assetManager.getMaterial(0));
+    scene.meshSet.add(entityCount, scene.assetManager.meshes[0]);
+    scene.materialSet.add(entityCount, scene.assetManager.materials[1]);
     scene.renderableSet.add(entityCount, RenderableTag{});
-    // TODO: THESE SRE NECESSARY FOR COLLISION OBJECTS - MAYBE SHOULD DISTINGUISH
+    // TODO: THESE ARE NECESSARY FOR COLLISION OBJECTS - MAYBE SHOULD DISTINGUISH
     scene.transformSet.add(entityCount, TransformComponent{glm::vec3(-20, 0, 20)});
 
     ++entityCount;
-    scene.meshSet.add(entityCount, scene.assetManager.getMesh(1));
-    scene.materialSet.add(entityCount, scene.assetManager.getMaterial(1));
+    scene.meshSet.add(entityCount, scene.assetManager.meshes[1]);
+    scene.materialSet.add(entityCount, scene.assetManager.materials[0]);
     scene.renderableSet.add(entityCount, RenderableTag{});
     scene.velocitySet.add(entityCount, VelocityComponent{glm::vec3(0.0f)});
     scene.speedSet.add(entityCount, SpeedComponent{5.0f});
@@ -255,7 +57,7 @@ void init(ECS& scene) {
     ++entityCount;
     // TODO: THIS NEEDS TO BE CHANGED HOW THE PRIMITIVES ARE USED
     scene.meshSet.add(entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
-    scene.materialSet.add(entityCount, scene.assetManager.getMaterial(0));
+    scene.materialSet.add(entityCount, scene.assetManager.materials[0]);
     scene.renderableSet.add(entityCount, RenderableTag{});
     scene.velocitySet.add(entityCount, VelocityComponent{glm::vec3(0.0f)});
     scene.speedSet.add(entityCount, SpeedComponent{5.0f});

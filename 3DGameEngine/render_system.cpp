@@ -13,8 +13,8 @@
 
 RenderSystem::RenderSystem(Window& window)
     : window(window),
-      framebufferShader("fb_vertex_shader.vs", "fb_fragment_shader.fs"),
-      framebuffer(createFrameBuffer(framebufferShader, window.width, window.height)),
+      framebufferShaderID(createShaderProgram("fb_vertex_shader.vs", "fb_fragment_shader.fs")),
+      framebuffer(createFrameBuffer(framebufferShaderID, window.width, window.height)),
       quadVAO(createQuad()),
       sceneUBO(createSceneUBO()),
       lightSSBO(createLightSSBO()) {
@@ -26,18 +26,11 @@ void RenderSystem::renderScene(ECS& scene) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     CameraComponent& camera = scene.cameraSet.getComponent(scene.cameraSet.getEntities()[0]);
     std::vector<uint32_t>& visibleEntities = scene.visibleEntities;
-    // TODO: DONT FORGET TO REMOVE THIS - and look into iostream usage throughout, including exceptions.
-    static size_t prevVE;
     // TODO: MAKE FRUSTUM CULLLING OPTIONAL
     performFrustumCulling(scene.renderableSet.getEntities(), scene.transformSet, scene.meshSet, scene.skyboxSet, visibleEntities, camera.frustumPlanes);
     
     std::vector<PackedLightData>& visiblePointLights = scene.visiblePointLights;
     performLightCulling(scene.pointLightSet, scene.transformSet, visiblePointLights, camera.frustumPlanes);
-    if (prevVE != visiblePointLights.size()) {
-        std::cout << "Visible lights changed! Count: " << visiblePointLights.size();
-        std::cout << std::endl;
-    }
-    prevVE = visiblePointLights.size();
     uploadLightSSBO(lightSSBO, visiblePointLights);
     SceneUBOData sceneData = {
         .viewMatrix = camera.viewMatrix,
@@ -49,21 +42,22 @@ void RenderSystem::renderScene(ECS& scene) {
     for (uint32_t entity : visibleEntities) {
         MaterialData& material = scene.materialSet.getComponent(entity);
         MeshData& mesh = scene.meshSet.getComponent(entity);
-        material.shader.use();
         // TODO: This needs to be looked at - it would be more efficient to use a cached VP matrix but I don't know if that would cause issues later.
+        // TODO: THIS IS A LAST MINUTE DECISION, HURTS BRANCH PREDICTION AND BRANCHES ARE BAD FOR I-CACHE. SAME FOR THE INSTANCED CHECK.
+        // MOVE IT TO THE END OF THE FUNCTION OUTSIDE THE LOOP OR MAKE A SEPERATE SYSTEM FOR IT.
+        // ESSENTIALLY IT JUST SHOULDNT BE IN THE RENDERABLE SET. THIS BRINGS UP THE QUESTION OF SAFETY. SHOULD ASSERT ON COMPONENT ADD.
         if (scene.skyboxSet.hasComponent(entity)) {
             glDepthFunc(GL_LEQUAL);
         } else {
             TransformComponent& transform = scene.transformSet.getComponent(entity);
             glm::mat4 transformMatrix = buildTransformMatrix(transform.position, transform.scale, transform.rotation);
-            material.shader.setMat4Uniform("model", transformMatrix);
+            glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformMatrix)));
+            glProgramUniformMatrix4fv(material.shaderID, 0, 1, GL_FALSE, &transformMatrix[0][0]);
+            glProgramUniformMatrix3fv(material.shaderID, 1, 1, GL_FALSE, &normalMatrix[0][0]);
         }
         glBindVertexArray(mesh.vao);
-        for (int i = 0; i < material.textures.size(); i++) {
-            // TODO: LOOK INTO BINDLESS TEXTURES
-            glActiveTexture(GL_TEXTURE0 + i);
-            glBindTexture(material.textures[i].target, material.textures[i].id);
-        }
+        glProgramUniform1i(material.shaderID, 2, material.materialSSBOIndex);
+        glUseProgram(material.shaderID);
         if (!scene.instancedSet.hasComponent(entity)) {
             glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
         } else {
@@ -75,7 +69,7 @@ void RenderSystem::renderScene(ECS& scene) {
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    framebuffer.shader.use();
+    glUseProgram(framebuffer.shaderID);
     glBindVertexArray(quadVAO);
     glDisable(GL_DEPTH_TEST);
     glActiveTexture(GL_TEXTURE0);
@@ -135,7 +129,7 @@ GLuint RenderSystem::createSceneUBO() {
     return sceneUBO;
 }
 
-Framebuffer createFrameBuffer(const Shader& framebufferShader, const uint32_t width, const uint32_t height) {
+Framebuffer createFrameBuffer(const uint32_t framebufferShaderID, const uint32_t width, const uint32_t height) {
     unsigned int framebuffer;
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -162,7 +156,7 @@ Framebuffer createFrameBuffer(const Shader& framebufferShader, const uint32_t wi
     return Framebuffer{.buffer = framebuffer,
                        .textureAttachment = textureColorbuffer,
                        .renderBufferObject = rbo,
-                       .shader = framebufferShader};
+                       .shaderID = framebufferShaderID};
 }
 
 glm::mat4 buildTransformMatrix(const glm::vec3& position, const glm::vec3& scale, const glm::quat& rotation) {

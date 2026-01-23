@@ -12,64 +12,11 @@
 #include <unordered_map>
 #include <vector>
 
-static
-
-struct ComponentBlob {
-    const std::type_info* typeInfo;
-    size_t size;
-    std::unique_ptr<uint8_t[]> data;
-
-    template <typename T>
-    ComponentBlob(const T& component);
-
-    ComponentBlob(ComponentBlob&& other) noexcept;
-    ComponentBlob(const ComponentBlob&) = delete;
-    ComponentBlob& operator=(const ComponentBlob&) = delete;
-};
-
-template <typename T>
-T& deserializeBlob(ComponentBlob& blob);
-
-template <typename T>
-ComponentBlob::ComponentBlob(const T& component) {
-    typeInfo = &typeid(T);
-    size = sizeof(T);
-    data = std::make_unique<uint8_t[]>(sizeof(T));
-    memcpy(data.get(), &component, size);
-}
-
-template <typename T>
-T& deserializeBlob(ComponentBlob& blob) {
-    if (*blob.typeInfo != typeid(T)) {
-        throw std::runtime_error("Type mismatch!");
-    }
-    return *reinterpret_cast<T*>(blob.data.get());
-}
-
-struct MeshHandleStorage {
-    uint32_t meshHandle;
-};
-
-struct MaterialHandleStorage {
-    uint32_t materialHandle;
-};
-
-struct EntityTemplate {
-    std::string name;
-    std::vector<ComponentBlob> components;
-};
-
 class ECS {
 public:
     ECS();
 
-    void parseEntityTemplateFile();
-    void parseSceneFile();
-    void useEntityTemplate(const std::string& entityName);
-
     AssetManager assetManager;
-
-    std::unordered_map<std::string, EntityTemplate> entityTemplates;
 
     static constexpr uint32_t MAX_ENTITIES = 2000000;
     uint32_t entityCount;
@@ -78,7 +25,8 @@ public:
     // components that are spaced far apart. i.e. greater than one entity has a
     // component and these entities differ largely in entity count.
     // 
-    // TODO: NEED TO RESERVE MEMORY ONCE WE GET DYNAMIC ENTITY CREATION
+    // TODO: NEED TO RESERVE MEMORY ONCE WE GET DYNAMIC ENTITY CREATION - THIS SHOULD BE AN ARENA FOR ALL COMPONENTS
+    // TODO: SPARSE SETS SHOULD BE MADE CLEANER
     SparseSet<TransformComponent> transformSet;
     SparseSet<MeshData> meshSet;
     SparseSet<MaterialData> materialSet;

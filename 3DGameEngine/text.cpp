@@ -1,3 +1,4 @@
+/*
 #define _CRT_SECURE_NO_WARNINGS
 #include <unordered_map>
 #include "shader_s.h"
@@ -170,3 +171,4 @@ void Text::setupTextBuffers()
                           (void *)(2 * sizeof(float)));
     glEnableVertexAttribArray(1);
 }
+*/

@@ -15,8 +15,8 @@ out vec2 texCoords;
 out vec3 fragPos;
 out vec3 normal;
 
-uniform mat4 model;
-uniform mat3 normalMatrix;
+layout (location = 0) uniform mat4 model;
+layout (location = 1) uniform mat3 normalMatrix;
 
 void main()
 {

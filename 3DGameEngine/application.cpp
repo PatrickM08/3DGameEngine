@@ -65,7 +65,7 @@ void Application::handleWindowEvent(const Event& event) {
         window.width = event.resize.width;
         window.height = event.resize.height;
         renderSystem.framebuffer = createFrameBuffer(
-            renderSystem.framebufferShader, window.width, window.height);
+            renderSystem.framebufferShaderID, window.width, window.height);
         updateProjectionMatrix(camera, window.width, window.height);
         break;
     }
