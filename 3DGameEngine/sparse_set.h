@@ -4,6 +4,8 @@
 #include <memory>
 #include <algorithm>
 
+// TODO: USE AN ARENA FOR THE THREE ARRAYS, PROBABLY REMOVE THE TEMPLATE - HAVE TO THINK ABOUT HOW EASY IT IS TO CREATE A COMPONENT FOR THE USER THOUGH.
+
 // GET AND REMOVE BOTH ASSUME THAT HAS WILL BE CALLED FIRST, IT IS THE RESPONSIBILITY OF THE CALLER
 // (the idea is getComponent and remove may be called in succession so we wouldn't want a redundant hasComponent check)
 
@@ -12,14 +14,13 @@
 // and is therefore left without reservation.
 template <typename Component>
 class SparseSet {
-private:
+public:
 	std::vector<uint32_t> sparse;
 	std::vector<Component> dense;
 	std::vector<uint32_t> entities;
 
 	static constexpr uint32_t INVALID_INDEX = UINT32_MAX;
 
-public:
 	bool hasComponent(uint32_t entityID) const {
 		if (entityID >= sparse.size()) return false;
 		uint32_t denseIndex = sparse[entityID];
@@ -75,12 +76,11 @@ struct SparseSetPage {
 // PAGED SHOULD ONLY BE USED FOR INIT ENTITIES UNTIL WE HAVE VERSION CONTROL
 template <typename Component>
 class PagedSparseSet {
-private:
+public:
 	std::vector<std::unique_ptr<SparseSetPage>> sparsePages;
 	std::vector<Component> dense;
 	std::vector<uint32_t> entities;
 
-public:
 	bool hasComponent(uint32_t entityID) const {
         uint32_t pageIndex = entityID / PAGE_SIZE;
         if (pageIndex >= sparsePages.size() || sparsePages[pageIndex] == nullptr) return false;

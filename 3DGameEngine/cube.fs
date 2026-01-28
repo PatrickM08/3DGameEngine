@@ -8,9 +8,9 @@ in vec3 normal;
 layout (std140, binding = 0) uniform SceneData {
     mat4 viewMatrix;
     mat4 projectionMatrix;
-    // vec3 and int = 16 bytes - be careful of alignment if you want to change
     vec3 cameraPosition;
     int pointLightCount;
+    samplerCube skyboxCubemap;
 } sceneData;
 
 struct PointLight {

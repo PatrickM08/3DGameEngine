@@ -216,23 +216,11 @@ std::vector<MeshData> AssetManager::loadMeshes(const char* path) {
     return meshes;
 }
 
-// TODO: THIS IS AN ABSOLUTE MESS - NEEDS TO BE COMPLETELY REWORKED - START FROM A CODE SOLUTION AND THEN POTENTIALLY ADD A FILE SOLUTION
 std::vector<MaterialData> AssetManager::loadMaterials() {
     std::vector<MaterialData> materials;
     std::vector<MaterialSSBOData> materialSSBOData;
     uint64_t cubeDiffuse = loadTexture(getPath("container2.png").c_str());
     uint64_t cubeSpecular = loadTexture(getPath("container2_specular.png").c_str());
-    // THIS NEEDS TO BE IN THE GLOBAL UBO - SO PROBABLY A SEPERATE FUNCTION
-    std::string paths[6] = {
-        getPath("right.jpg"), getPath("left.jpg"),
-        getPath("top.jpg"), getPath("bottom.jpg"),
-        getPath("front.jpg"), getPath("back.jpg")};
-
-    const char* cubemapTexturePaths[6] = {
-        paths[0].c_str(), paths[1].c_str(), paths[2].c_str(),
-        paths[3].c_str(), paths[4].c_str(), paths[5].c_str()};
-
-    uint64_t skyboxCubemap = loadCubemap(cubemapTexturePaths);
 
     int materialCount = 0;
     MaterialSSBOData cubeMaterial = {cubeDiffuse, cubeSpecular, 32.0f};
@@ -251,6 +239,19 @@ std::vector<MaterialData> AssetManager::loadMaterials() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, materialSSBO);
 
     return materials;
+}
+
+uint64_t AssetManager::loadSkyboxCubemap() {
+    std::string paths[6] = {
+        getPath("right.jpg"), getPath("left.jpg"),
+        getPath("top.jpg"), getPath("bottom.jpg"),
+        getPath("front.jpg"), getPath("back.jpg")};
+
+    const char* cubemapTexturePaths[6] = {
+        paths[0].c_str(), paths[1].c_str(), paths[2].c_str(),
+        paths[3].c_str(), paths[4].c_str(), paths[5].c_str()};
+
+    return loadCubemap(cubemapTexturePaths);
 }
 
 // TODO: ADD A FALL BACK TEXTURE
@@ -436,3 +437,4 @@ MeshData createUnitCubePrimitive(std::vector<MeshData>& meshes) {
     meshes.emplace_back(numberOfMeshes, VAO, 36, AABB{-xOffset, -yOffset, -zOffset, xOffset, yOffset, zOffset});
     return meshes.back();
 }
+

@@ -1,4 +1,5 @@
 #version 430 core
+#extension GL_ARB_bindless_texture : require
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aTexCoord;
@@ -9,6 +10,7 @@ layout (std140, binding = 0) uniform SceneData{
     mat4 projectionMatrix;
     vec3 cameraPosition;
     int pointLightCount;
+    samplerCube skyboxCubemap;
 } sceneData;
 
 out vec2 texCoords;

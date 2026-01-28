@@ -96,6 +96,7 @@ void MovementSystem::updateTransforms(float deltaTime) {
 
 		transform.position += velocity.velocity * deltaTime;
 
+		// TODO: CHANGE THIS
 		if (scene.cameraSet.hasComponent(entity)) {
 			CameraComponent& camera = scene.cameraSet.getComponent(entity);
 			updateCameraPosition(camera, transform.position);

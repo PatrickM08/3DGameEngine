@@ -3,6 +3,7 @@
 #include "ecs.h"
 #include "sparse_set.h"
 #include <iostream>
+#include <chrono>
 
 Application::Application()
     : window(1600, 1200, "Draft"), windowPtr(window.getGlfwWindowPtr()),
@@ -45,8 +46,18 @@ int Application::run() {
         patrolSystem.updateVelocity(deltaTime);
         collisionSystem.updateVelocity(deltaTime);
         movementSystem.updateTransforms(deltaTime);
-        renderSystem.renderScene(scene);
-
+        auto renderStart = std::chrono::steady_clock::now();
+        performLightCulling(scene.pointLightSet, scene.transformSet, scene.visiblePointLights, scene.cameraSet.dense[0].frustumPlanes);
+        uploadLightSSBO(scene.lightSSBO, scene.visiblePointLights);
+        updateSceneData(scene.sceneData, scene.cameraSet.dense[0], scene.visiblePointLights, scene.skyboxData);
+        uploadSceneUBO(scene.sceneUBO, scene.sceneData);
+        performFrustumCulling(scene.renderableSet.entities, scene.transformSet, scene.meshSet, 
+                              scene.visibleEntities, scene.cameraSet.dense[0].frustumPlanes);
+        renderSystem.renderScene(scene.visibleEntities, scene.materialSet, scene.meshSet, scene.transformSet);
+        renderSkybox(scene.skyboxData);
+        renderSystem.drawToFramebuffer();
+        auto renderEnd = std::chrono::steady_clock::now();
+        std::cout << "Render System: " << renderEnd - renderStart << "\n";
         glfwSwapBuffers(windowPtr);
     }
     return 0;
