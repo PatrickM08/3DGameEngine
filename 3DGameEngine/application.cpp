@@ -8,14 +8,17 @@
 Application::Application()
     : window(1600, 1200, "Draft"), windowPtr(window.getGlfwWindowPtr()),
       renderSystem(window), firstMouse(true), lastX(0.0f), lastY(0.0f),
-      deltaTime(0.0f), lastFrame(0.0f), scene(), movementSystem(scene),
-      worldSpaceInputSystem(scene), tankInputSystem(scene),
-      noClipInputSystem(scene), patrolSystem(scene), collisionSystem(scene),
+      deltaTime(0.0f), lastFrame(0.0f), scene(),
       inputDirection(glm::vec3(0.0f, 0.0f, 0.0f)) {}
 
 int Application::run() {
     init(scene);
     while (!glfwWindowShouldClose(windowPtr)) {
+        auto start = std::chrono::steady_clock::now();
+        // TODO: FIND THE CORRECT PLACE TO CLEAR BUFFERS
+        scene.physicsManifold.size = 0;
+        scene.deleteBuffer.size = 0;
+
         updateTiming();
 
         handleKeyInput();
@@ -39,14 +42,16 @@ int Application::run() {
         updateViewMatrix(camera);
 
         // Update systems
-        worldSpaceInputSystem.updateVelocity(inputDirection);
-        tankInputSystem.updateVelocity(inputDirection, deltaTime);
-        noClipInputSystem.updateVelocity(inputDirection, camera.front,
-                                         camera.right);
-        patrolSystem.updateVelocity(deltaTime);
-        collisionSystem.updateVelocity(deltaTime);
-        movementSystem.updateTransforms(deltaTime);
-        auto renderStart = std::chrono::steady_clock::now();
+        worldSpaceInputSystem(scene.inputWorldSet, scene.velocitySet, scene.speedSet, inputDirection);
+        tankInputSystem(scene.rotationSpeedSet, scene.speedSet, scene.inputTankSet, 
+                        scene.velocitySet, scene.transformSet, inputDirection, deltaTime);
+        noClipInputSystem(scene.inputNoClipSet, scene.speedSet, scene.velocitySet, inputDirection, camera.front,camera.right);
+        patrolSystem(scene.patrolSet, scene.speedSet, scene.velocitySet, deltaTime);
+        movementSystem(scene.velocitySet, scene.transformSet, scene.cameraSet, deltaTime);
+        collisionSystem(scene.collisionSet, scene.transformSet, scene.dynamicSet, scene.bulletSet, scene.healthSet,
+                        scene.physicsManifold, scene.deleteBuffer);
+        resolveCollisions(scene.physicsManifold, scene.transformSet, scene.velocitySet);
+        healthSystem(scene.healthSet, scene.deleteBuffer);
         performLightCulling(scene.pointLightSet, scene.transformSet, scene.visiblePointLights, scene.cameraSet.dense[0].frustumPlanes);
         uploadLightSSBO(scene.lightSSBO, scene.visiblePointLights);
         updateSceneData(scene.sceneData, scene.cameraSet.dense[0], scene.visiblePointLights, scene.skyboxData);
@@ -56,14 +61,14 @@ int Application::run() {
         renderSystem.renderScene(scene.visibleEntities, scene.materialSet, scene.meshSet, scene.transformSet);
         renderSkybox(scene.skyboxData);
         renderSystem.drawToFramebuffer();
-        auto renderEnd = std::chrono::steady_clock::now();
-        std::cout << "Render System: " << renderEnd - renderStart << "\n";
+        auto end = std::chrono::steady_clock::now();
         glfwSwapBuffers(windowPtr);
+        deleteSystem(scene);
+        std::cout << "all Systems: " << end - start << "\n";
     }
     return 0;
 }
 
-// Add std::unreachable() when all window events are accounted for.
 void Application::handleWindowEvent(const Event& event) {
     if (scene.cameraSet.getEntities().empty())
         return;
@@ -105,6 +110,7 @@ void Application::handleWindowEvent(const Event& event) {
 }
 
 void Application::handleKeyInput() {
+    static bool spaceDown = false;
     inputDirection.direction = glm::vec3(0.0f, 0.0f, 0.0f);
     if (glfwGetKey(windowPtr, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(windowPtr, true);
@@ -116,6 +122,16 @@ void Application::handleKeyInput() {
         inputDirection.direction += glm::vec3(-1.0f, 0.0f, 0.0f);
     if (glfwGetKey(windowPtr, GLFW_KEY_D) == GLFW_PRESS)
         inputDirection.direction += glm::vec3(1.0f, 0.0f, 0.0f);
+    // TODO: MAKE THIS A PROPER SYSTEM.
+    if (glfwGetKey(windowPtr, GLFW_KEY_SPACE) == GLFW_RELEASE)
+        spaceDown = false;
+    if (glfwGetKey(windowPtr, GLFW_KEY_SPACE) == GLFW_PRESS && !spaceDown) {
+        spaceDown = true;
+        uint32_t player = scene.inputTankSet.entities[0];
+        glm::vec3 position = scene.transformSet.getComponent(player).position;
+        glm::quat rotation = scene.transformSet.getComponent(player).rotation;
+        createBullet(scene, position, rotation);
+    }
 }
 
 void Application::updateTiming() {

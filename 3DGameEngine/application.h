@@ -14,13 +14,7 @@ private:
     float lastX, lastY;
     float deltaTime, lastFrame;
     ECS scene;
-    MovementSystem movementSystem;
-    WorldSpaceInputSystem worldSpaceInputSystem;
-    TankInputSystem tankInputSystem;
-    NoClipInputSystem noClipInputSystem;
     InputDirection inputDirection;
-    PatrolSystem patrolSystem;
-    CollisionSystem collisionSystem;
 
 private:
     void handleWindowEvent(const Event& event);

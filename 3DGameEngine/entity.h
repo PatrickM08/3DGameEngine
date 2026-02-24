@@ -21,9 +21,10 @@ struct PackedLightData {
 };
 
 // TODO: It would be better if these were seperate - at least scale, because its just taking up room in cache thats hardly used.
+// MAYBE NOT ACTUALLY
 struct TransformComponent {
-    glm::vec3 position = glm::vec3(0, 0, 0);
     glm::quat rotation = glm::quat(1, 0, 0, 0);
+    glm::vec3 position = glm::vec3(0, 0, 0);
     glm::vec3 scale = glm::vec3(1, 1, 1);
 };
 
@@ -55,6 +56,10 @@ struct CollisionComponent {
     float minZ = 0, maxZ = 0;
 };
 
+struct HealthComponent {
+    int32_t health; // TODO: THIS COULD BE 8 BYTE - DEPENDING ON GAME - ADD OPTIONS, WOULD BE ABLE TO FIT MORE INTO CACHE. ALSO MIGHT WRAPAROUND.
+};
+
 struct RenderableTag {};
 
 struct PlayerInputWorldTag {};
@@ -64,3 +69,7 @@ struct PlayerInputTankTag {};
 struct PlayerInputNoClipTag {};
 
 struct SkyboxTag {};
+
+struct BulletTag {};
+
+struct DynamicTag {};

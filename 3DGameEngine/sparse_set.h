@@ -60,6 +60,7 @@ public:
 		sparse[entitiesLast] = denseIndex;
 		dense.pop_back();
 		entities.pop_back();
+        sparse[entityID] = INVALID_INDEX;
 	}
 
 	const std::vector<uint32_t>& getEntities() const {

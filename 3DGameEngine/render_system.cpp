@@ -30,7 +30,7 @@ void RenderSystem::renderScene(const std::vector<uint32_t>& visibleEntities, con
         const TransformComponent& transform = transformSet.getComponent(entity);
         // TODO: I THINK THIS IS WRONG NOW, NEED TO PROFILE
         glm::mat4 transformMatrix = buildTransformMatrix(transform.position, transform.scale, transform.rotation);
-        glm::mat3 normalMatrix = glm::mat4(1.0f);
+        glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformMatrix)));
         glProgramUniformMatrix4fv(material.shaderID, 0, 1, GL_FALSE, &transformMatrix[0][0]);
         glProgramUniformMatrix3fv(material.shaderID, 1, 1, GL_FALSE, &normalMatrix[0][0]);
 

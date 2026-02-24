@@ -23,63 +23,98 @@ ECS::ECS() {
 }
 
 void init(ECS& scene) {
-    uint32_t entityCount = 0;
 
-    scene.meshSet.add(entityCount, scene.assetManager.meshes[1]);
-    scene.velocitySet.add(entityCount, VelocityComponent{glm::vec3(0.0f)});
-    scene.speedSet.add(entityCount, SpeedComponent{5.0f});
-    scene.transformSet.add(entityCount, TransformComponent{.position = glm::vec3(0.0f, 0.0f, 0.0f)});
-    scene.inputNoClipSet.add(entityCount, PlayerInputNoClipTag{});
+    scene.meshSet.add(scene.entityCount, scene.assetManager.meshes[1]);
+    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(0.0f, 15.0f, 10.0f)});
 
     CameraComponent camera{
         .positionOffset = glm::vec3(0.0f),
-        .position = glm::vec3(0.0f, 0.0f, 0.0f),
+        .position = glm::vec3(0.0f, 20.0f, 10.0f),
         .worldUp = glm::vec3(0, 1, 0),
-        .yaw = -45.0f,
-        .pitch = -90.0f,
+        .yaw = -90.0f,
+        .pitch = -60.0f,
         .cameraType = CameraType::MOUSETURN};
 
     updateCameraVectors(camera);
-    scene.cameraSet.add(entityCount, camera);
+    scene.cameraSet.add(scene.entityCount, camera);
 
-    ++entityCount;
-    scene.meshSet.add(entityCount, scene.assetManager.meshes[0]);
-    scene.materialSet.add(entityCount, scene.assetManager.materials[1]);
-    scene.renderableSet.add(entityCount, RenderableTag{});
-    scene.transformSet.add(entityCount, TransformComponent{.position = glm::vec3(-20, 0, 20)});
+    ++scene.entityCount;
+    scene.meshSet.add(scene.entityCount, scene.assetManager.meshes[0]);
+    scene.materialSet.add(scene.entityCount, scene.assetManager.materials[1]);
+    scene.renderableSet.add(scene.entityCount, RenderableTag{});
+    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(-50, 0, 50)});
 
-    const uint32_t numEntities = 5000;
-    const uint32_t lightFrequency = 50;
+    ++scene.entityCount;
+    scene.meshSet.add(scene.entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
+    scene.materialSet.add(scene.entityCount, scene.assetManager.materials[0]);
+    scene.renderableSet.add(scene.entityCount, RenderableTag{});
+    scene.velocitySet.add(scene.entityCount, VelocityComponent{glm::vec3(0.0f)});
+    scene.speedSet.add(scene.entityCount, SpeedComponent{5.0f});
+    scene.rotationSpeedSet.add(scene.entityCount, RotationSpeedComponent{100.0f});
+    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(-5.0f, 0.5f, -2.0f)});
+    scene.inputTankSet.add(scene.entityCount, PlayerInputTankTag{});
+    scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -0.5f, .maxX = 0.5f, .minY = -0.5f, .maxY = 0.5f, .minZ = -0.5f, .maxZ = 0.5f});
+    scene.dynamicSet.add(scene.entityCount, DynamicTag{});
 
-    for (uint32_t i = 0; i < numEntities; ++i) {
-        ++entityCount;
+    ++scene.entityCount;
+    scene.meshSet.add(scene.entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
+    scene.materialSet.add(scene.entityCount, scene.assetManager.materials[0]);
+    scene.renderableSet.add(scene.entityCount, RenderableTag{});
+    scene.velocitySet.add(scene.entityCount, VelocityComponent{glm::vec3(0.0f)});
+    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(4.0f, 0.5f, -4.0f)});
+    scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -0.5f, .maxX = 0.5f, .minY = -0.5f, .maxY = 0.5f, .minZ = -0.5f, .maxZ = 0.5f});
+    scene.healthSet.add(scene.entityCount, HealthComponent{3});
 
-        float xPos = static_cast<float>(i % 70) * 3.0f;
-        float zPos = static_cast<float>(i / 70) * 3.0f;
+    ++scene.entityCount;
+    scene.meshSet.add(scene.entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
+    scene.materialSet.add(scene.entityCount, scene.assetManager.materials[0]);
+    scene.renderableSet.add(scene.entityCount, RenderableTag{});
+    scene.velocitySet.add(scene.entityCount, VelocityComponent{glm::vec3(0.0f)});
+    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(0.0f, 0.5f, -4.0f)});
+    scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -0.5f, .maxX = 0.5f, .minY = -0.5f, .maxY = 0.5f, .minZ = -0.5f, .maxZ = 0.5f});
+    scene.pointLightSet.add(scene.entityCount, PointLightComponent{.colour = glm::vec3(1.0f), .intensity = 1.0f, .radius = 10.0f});
 
-        scene.meshSet.add(entityCount, scene.assetManager.meshes[1]);
-        scene.materialSet.add(entityCount, scene.assetManager.materials[0]);
-        scene.renderableSet.add(entityCount, RenderableTag{});
-        scene.velocitySet.add(entityCount, VelocityComponent{glm::vec3(0.0f)});
-        scene.speedSet.add(entityCount, SpeedComponent{5.0f});
-        glm::vec3 pos = glm::vec3(xPos, 0.5f, zPos);
-        scene.transformSet.add(entityCount, TransformComponent{.position = pos});
+    ++scene.entityCount;
+    scene.meshSet.add(scene.entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
+    scene.materialSet.add(scene.entityCount, scene.assetManager.materials[0]);
+    scene.renderableSet.add(scene.entityCount, RenderableTag{});
+    scene.velocitySet.add(scene.entityCount, VelocityComponent{glm::vec3(0.0f)});
+    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(-3.0f, 0.5f, 0.0f)});
+    scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -0.5f, .maxX = 0.5f, .minY = -0.5f, .maxY = 0.5f, .minZ = -0.5f, .maxZ = 0.5f});
+    scene.pointLightSet.add(scene.entityCount, PointLightComponent{.colour = glm::vec3(1.0f), .intensity = 1.0f, .radius = 10.0f});
 
-        if (i % lightFrequency == 0) {
-            scene.pointLightSet.add(entityCount, PointLightComponent{
-                                                     .colour = glm::vec3(1.0f),
-                                                     .intensity = 1.5f,
-                                                     .radius = 12.0f});
-        }
-    }
+    ++scene.entityCount;
+    scene.meshSet.add(scene.entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
+    scene.materialSet.add(scene.entityCount, scene.assetManager.materials[0]);
+    scene.renderableSet.add(scene.entityCount, RenderableTag{});
+    scene.velocitySet.add(scene.entityCount, VelocityComponent{glm::vec3(0.0f)});
+    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(0.0f, 0.5f, -10.0f), .scale = glm::vec3(20.0f, 1.0f, 1.0f)});
+    // TODO: MAKE AN AUTOMATIC OR DEFAULT THAT RETRIEVES SCALE 
+    scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -10.0f, .maxX = 10.0f, .minY = -0.5f, .maxY = 0.5f, .minZ = -0.5f, .maxZ = 0.5f});
 
-    ++entityCount;
-    scene.meshSet.add(entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
-    scene.materialSet.add(entityCount, scene.assetManager.materials[0]);
-    scene.renderableSet.add(entityCount, RenderableTag{});
-    scene.velocitySet.add(entityCount, VelocityComponent{glm::vec3(0.0f)});
-    scene.speedSet.add(entityCount, SpeedComponent{5.0f});
-    scene.transformSet.add(entityCount, TransformComponent{.position = glm::vec3(5.0f, 0.5f, 0.0f)});
+    ++scene.entityCount;
+    scene.meshSet.add(scene.entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
+    scene.materialSet.add(scene.entityCount, scene.assetManager.materials[0]);
+    scene.renderableSet.add(scene.entityCount, RenderableTag{});
+    scene.velocitySet.add(scene.entityCount, VelocityComponent{glm::vec3(0.0f)});
+    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(0.0f, 0.5f, 2.0f), .scale = glm::vec3(20.0f, 1.0f, 1.0f)});
+    scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -10.0f, .maxX = 10.0f, .minY = -0.5f, .maxY = 0.5f, .minZ = -0.5f, .maxZ = 0.5f});
+
+    ++scene.entityCount;
+    scene.meshSet.add(scene.entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
+    scene.materialSet.add(scene.entityCount, scene.assetManager.materials[0]);
+    scene.renderableSet.add(scene.entityCount, RenderableTag{});
+    scene.velocitySet.add(scene.entityCount, VelocityComponent{glm::vec3(0.0f)});
+    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(-10.0f, 0.5f, -4.0f), .scale = glm::vec3(1.0f, 1.0f, 12.0f)});
+    scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -0.5f, .maxX = 0.5f, .minY = -0.5f, .maxY = 0.5f, .minZ = -6.0f, .maxZ = 6.0f});
+
+    ++scene.entityCount;
+    scene.meshSet.add(scene.entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
+    scene.materialSet.add(scene.entityCount, scene.assetManager.materials[0]);
+    scene.renderableSet.add(scene.entityCount, RenderableTag{});
+    scene.velocitySet.add(scene.entityCount, VelocityComponent{glm::vec3(0.0f)});
+    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(10.0f, 0.5f, -4.0f), .scale = glm::vec3(1.0f, 1.0f, 12.0f)});
+    scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -0.5f, .maxX = 0.5f, .minY = -0.5f, .maxY = 0.5f, .minZ = -6.0f, .maxZ = 6.0f});
 }
 
 GLuint createSceneUBO() {

@@ -3,34 +3,27 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 
-
-WorldSpaceInputSystem::WorldSpaceInputSystem(ECS& scene)
-	: scene(scene)
-{
-}
-
-void WorldSpaceInputSystem::updateVelocity(InputDirection dir) {
-	for (uint32_t entity : scene.inputWorldSet.getEntities()) {
+void worldSpaceInputSystem(const SparseSet<PlayerInputWorldTag>& inputWorldSet, SparseSet<VelocityComponent>& velocitySet,
+						   const SparseSet<SpeedComponent>& speedSet, InputDirection dir) {
+	for (uint32_t entity : inputWorldSet.getEntities()) {
 		if (dir.direction != glm::vec3(0.0f, 0.0f, 0.0f)) {
 			dir.direction = glm::normalize(dir.direction);
 		}
-		scene.velocitySet.getComponent(entity).velocity = dir.direction * scene.speedSet.getComponent(entity).speed;
+		velocitySet.getComponent(entity).velocity = dir.direction * speedSet.getComponent(entity).speed;
 	}
 }
 
 
+// TODO: THIS SHOULD BE COMPLETELY PARRALEL ON THE VELOCITY COMPONENTS
 
-TankInputSystem::TankInputSystem(ECS& scene)
-	: scene(scene)
-{
-}
-
-void TankInputSystem::updateVelocity(InputDirection dir, float deltaTime) {
-	for (uint32_t entity : scene.inputTankSet.getEntities()) {
-		auto& transform = scene.transformSet.getComponent(entity);
-		auto& rotationSpeed = scene.rotationSpeedSet.getComponent(entity);
-		auto& velocity = scene.velocitySet.getComponent(entity);
-		auto& speed = scene.speedSet.getComponent(entity);
+void tankInputSystem(const SparseSet<RotationSpeedComponent>& rotationSpeedSet, const SparseSet<SpeedComponent>& speedSet, 
+					 const SparseSet<PlayerInputTankTag>& inputTankSet, SparseSet<VelocityComponent>& velocitySet, 
+					 SparseSet<TransformComponent>& transformSet, const InputDirection& dir, float deltaTime) {
+	for (uint32_t entity : inputTankSet.getEntities()) {
+		TransformComponent& transform = transformSet.getComponent(entity);
+		const RotationSpeedComponent& rotationSpeed = rotationSpeedSet.getComponent(entity);
+        const SpeedComponent& speed = speedSet.getComponent(entity);
+		VelocityComponent& velocity = velocitySet.getComponent(entity);
 
 		transform.rotation = glm::angleAxis(glm::radians(rotationSpeed.rotationSpeed) * -1 * dir.direction.x * deltaTime,
 			glm::vec3(0, 1, 0)) * transform.rotation;
@@ -40,16 +33,11 @@ void TankInputSystem::updateVelocity(InputDirection dir, float deltaTime) {
 	}
 }
 
-
-NoClipInputSystem::NoClipInputSystem(ECS& scene)
-	: scene(scene)
-{
-}
-
-void NoClipInputSystem::updateVelocity(InputDirection dir, glm::vec3 front, glm::vec3 right) {
-	for (uint32_t entity : scene.inputNoClipSet.getEntities()) {
-		auto& velocity = scene.velocitySet.getComponent(entity);
-		auto& speed = scene.speedSet.getComponent(entity);
+void noClipInputSystem(const SparseSet<PlayerInputNoClipTag>& inputNoClipSet, const SparseSet<SpeedComponent>& speedSet, 
+					   SparseSet<VelocityComponent>& velocitySet, InputDirection dir, glm::vec3 front, glm::vec3 right) {
+	for (uint32_t entity : inputNoClipSet.getEntities()) {
+		auto& velocity = velocitySet.getComponent(entity);
+		auto& speed = speedSet.getComponent(entity);
 		if (dir.direction != glm::vec3(0.0f, 0.0f, 0.0f)) {
 			dir.direction = (front * dir.direction.z * -1.0f) + (right * dir.direction.x); // We're looking down the -z axis
 		}
@@ -58,16 +46,12 @@ void NoClipInputSystem::updateVelocity(InputDirection dir, glm::vec3 front, glm:
 }
 
 
-PatrolSystem::PatrolSystem(ECS& scene)
-	: scene(scene)
-{
-}
-
-void PatrolSystem::updateVelocity(float deltaTime) {
-	for (uint32_t entity : scene.patrolSet.getEntities()) {
-		auto& patrol = scene.patrolSet.getComponent(entity);
-		auto& speed = scene.speedSet.getComponent(entity);
-		auto& velocity = scene.velocitySet.getComponent(entity);
+void patrolSystem(SparseSet<PatrolComponent>& patrolSet, const SparseSet<SpeedComponent>& speedSet, 
+				  SparseSet<VelocityComponent>& velocitySet, float deltaTime) {
+	for (uint32_t entity : patrolSet.getEntities()) {
+		auto& patrol = patrolSet.getComponent(entity);
+		auto& speed = speedSet.getComponent(entity);
+		auto& velocity = velocitySet.getComponent(entity);
 
 		if (patrol.magnitude != 0) {
 			if (patrol.currentPatrolDistance < patrol.magnitude) {
@@ -83,22 +67,17 @@ void PatrolSystem::updateVelocity(float deltaTime) {
 }
 
 
-
-MovementSystem::MovementSystem(ECS& scene)
-	: scene(scene)
-{
-}
-
-void MovementSystem::updateTransforms(float deltaTime) {
-	for (uint32_t entity : scene.velocitySet.getEntities()) {
-		auto& transform = scene.transformSet.getComponent(entity);
-		auto& velocity = scene.velocitySet.getComponent(entity);
+void movementSystem(const SparseSet<VelocityComponent>& velocitySet, SparseSet<TransformComponent>& transformSet, 
+					SparseSet<CameraComponent>& cameraSet, float deltaTime) {
+	for (uint32_t entity : velocitySet.getEntities()) {
+		auto& transform = transformSet.getComponent(entity);
+		auto& velocity = velocitySet.getComponent(entity);
 
 		transform.position += velocity.velocity * deltaTime;
 
 		// TODO: CHANGE THIS
-		if (scene.cameraSet.hasComponent(entity)) {
-			CameraComponent& camera = scene.cameraSet.getComponent(entity);
+		if (cameraSet.hasComponent(entity)) {
+			CameraComponent& camera = cameraSet.getComponent(entity);
 			updateCameraPosition(camera, transform.position);
 			updateViewMatrix(camera);
 		}

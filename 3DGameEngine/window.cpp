@@ -24,7 +24,7 @@ Window::Window(uint32_t width, uint32_t height, const char* title)
     }
 
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(0);
+    glfwSwapInterval(1); // VSYNC ON = 1, OFF = 0
 
     glfwSetWindowUserPointer(window, this);
 

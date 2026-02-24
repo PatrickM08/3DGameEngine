@@ -6,46 +6,18 @@ struct InputDirection {
 	glm::vec3 direction;
 };
 
-class WorldSpaceInputSystem {
-public:
-	WorldSpaceInputSystem(ECS& scene);
-	void updateVelocity(InputDirection dir);
+void worldSpaceInputSystem(const SparseSet<PlayerInputWorldTag>& inputWorldSet, SparseSet<VelocityComponent>& velocitySet,
+                           const SparseSet<SpeedComponent>& speedSet, InputDirection dir);
 
-private:
-	ECS& scene;
-};
+void tankInputSystem(const SparseSet<RotationSpeedComponent>& rotationSpeedSet, const SparseSet<SpeedComponent>& speedSet,
+                     const SparseSet<PlayerInputTankTag>& inputTankSet, SparseSet<VelocityComponent>& velocitySet,
+                     SparseSet<TransformComponent>& transformSet, const InputDirection& dir, float deltaTime);
 
-class TankInputSystem {
-public:
-	TankInputSystem(ECS& scene);
-	void updateVelocity(InputDirection dir, float deltaTime);
+void noClipInputSystem(const SparseSet<PlayerInputNoClipTag>& inputNoClipSet, const SparseSet<SpeedComponent>& speedSet,
+                       SparseSet<VelocityComponent>& velocitySet, InputDirection dir, glm::vec3 front, glm::vec3 right);
 
-private:
-	ECS& scene;
-};
+void patrolSystem(SparseSet<PatrolComponent>& patrolSet, const SparseSet<SpeedComponent>& speedSet,
+                  SparseSet<VelocityComponent>& velocitySet, float deltaTime);
 
-class NoClipInputSystem {
-public:
-	NoClipInputSystem(ECS& scene);
-	void updateVelocity(InputDirection dir, glm::vec3 front, glm::vec3 right);
-private:
-	ECS& scene;
-};
-
-class PatrolSystem {
-public:
-	PatrolSystem(ECS& scene);
-	void updateVelocity(float deltaTime);
-
-private:
-	ECS& scene;
-};
-
-class MovementSystem {
-public:
-	MovementSystem(ECS& scene);
-	void updateTransforms(float deltaTime);
-
-private:
-	ECS& scene;
-};
+void movementSystem(const SparseSet<VelocityComponent>& velocitySet, SparseSet<TransformComponent>& transformSet,
+                    SparseSet<CameraComponent>& cameraSet, float deltaTime);

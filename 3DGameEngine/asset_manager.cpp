@@ -222,7 +222,6 @@ std::vector<MaterialData> AssetManager::loadMaterials() {
     uint64_t cubeDiffuse = loadTexture(getPath("container2.png").c_str());
     uint64_t cubeSpecular = loadTexture(getPath("container2_specular.png").c_str());
 
-    int materialCount = 0;
     MaterialSSBOData cubeMaterial = {cubeDiffuse, cubeSpecular, 32.0f};
     MaterialSSBOData noMaterial = {0, 0, 0.0f};
     materialSSBOData.push_back(cubeMaterial);
@@ -374,48 +373,49 @@ MeshData createUnitCubePrimitive(std::vector<MeshData>& meshes) {
     float xOffset = 0.5f;
     float yOffset = 0.5f;
     float zOffset = 0.5f;
+
     float vertices[] = {
-        -xOffset, -yOffset, zOffset,
-        xOffset, -yOffset, zOffset,
-        xOffset, yOffset, zOffset,
-        -xOffset, -yOffset, zOffset,
-        xOffset, yOffset, zOffset,
-        -xOffset, yOffset, zOffset,
+        -xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,
+        xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+        -xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+        -xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
 
-        xOffset, -yOffset, -zOffset,
-        -xOffset, -yOffset, -zOffset,
-        -xOffset, yOffset, -zOffset,
-        xOffset, -yOffset, -zOffset,
-        -xOffset, yOffset, -zOffset,
-        xOffset, yOffset, -zOffset,
+        xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+        -xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,
+        -xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
+        xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+        -xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
+        xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,
 
-        -xOffset, -yOffset, -zOffset,
-        -xOffset, -yOffset, zOffset,
-        -xOffset, yOffset, zOffset,
-        -xOffset, -yOffset, -zOffset,
-        -xOffset, yOffset, zOffset,
-        -xOffset, yOffset, -zOffset,
+        -xOffset, -yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        -xOffset, -yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+        -xOffset, yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, -yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        -xOffset, yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
 
-        xOffset, -yOffset, zOffset,
-        xOffset, -yOffset, -zOffset,
-        xOffset, yOffset, -zOffset,
-        xOffset, -yOffset, zOffset,
-        xOffset, yOffset, -zOffset,
-        xOffset, yOffset, zOffset,
+        xOffset, -yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, -yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+        xOffset, yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        xOffset, -yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        xOffset, yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
 
-        -xOffset, yOffset, zOffset,
-        xOffset, yOffset, zOffset,
-        xOffset, yOffset, -zOffset,
-        -xOffset, yOffset, zOffset,
-        xOffset, yOffset, -zOffset,
-        -xOffset, yOffset, -zOffset,
+        -xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+        xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
 
-        -xOffset, -yOffset, -zOffset,
-        xOffset, -yOffset, -zOffset,
-        xOffset, -yOffset, zOffset,
-        -xOffset, -yOffset, -zOffset,
-        xOffset, -yOffset, zOffset,
-        -xOffset, -yOffset, zOffset};
+        -xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f};
 
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
@@ -423,12 +423,15 @@ MeshData createUnitCubePrimitive(std::vector<MeshData>& meshes) {
 
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    // TODO: THIS WOULD HAVE TO BE CHANGED DEPENDING ON THE SHADER AND NORMALS AND STUFF - SHOULD PROBABLY BE STANDARDISED - ALSO SEE IF SHOULD BE STATIC
-    // TOO DEPENDENT ON SHADER
-    glBufferData(GL_ARRAY_BUFFER, 36 * 3 * sizeof(float), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    GLsizei stride = 8 * sizeof(float);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -437,4 +440,3 @@ MeshData createUnitCubePrimitive(std::vector<MeshData>& meshes) {
     meshes.emplace_back(numberOfMeshes, VAO, 36, AABB{-xOffset, -yOffset, -zOffset, xOffset, yOffset, zOffset});
     return meshes.back();
 }
-

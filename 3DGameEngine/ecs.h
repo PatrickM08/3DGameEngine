@@ -26,6 +26,25 @@ struct SkyboxData {
     uint32_t meshVAO;
 };
 
+struct PhysicsManifoldEntry {
+    glm::vec3 collisionNormal;
+    uint32_t entityID;
+    float depth;
+};
+
+// The capacity and size of these can probably be 16 bit - but we can leave it for now
+struct CollisionPhysicsManifold {
+    uint32_t capacity = 64;
+    uint32_t size = 0;
+    PhysicsManifoldEntry* buffer = new PhysicsManifoldEntry[capacity];
+};
+
+struct DeleteBuffer {
+    uint32_t capacity = 64;
+    uint32_t size = 0;
+    uint32_t* buffer = new uint32_t[capacity];
+};
+
 GLuint createLightSSBO();
 void performLightCulling(const SparseSet<PointLightComponent>& pointLightEntities,
                          const SparseSet<TransformComponent>& transformSet,
@@ -75,6 +94,9 @@ public:
     SparseSet<RenderableTag> renderableSet;
     SparseSet<CameraComponent> cameraSet;
     SparseSet<PointLightComponent> pointLightSet;
+    SparseSet<BulletTag> bulletSet;
+    SparseSet<DynamicTag> dynamicSet;
+    SparseSet<HealthComponent> healthSet;
 
     std::vector<uint32_t> visibleEntities;
     std::vector<PackedLightData> visiblePointLights;
@@ -82,6 +104,9 @@ public:
     SkyboxData skyboxData;
     GLuint sceneUBO;
     SceneUBOData sceneData;
+
+    CollisionPhysicsManifold physicsManifold;
+    DeleteBuffer deleteBuffer;
 };
 
 void init(ECS& scene);
