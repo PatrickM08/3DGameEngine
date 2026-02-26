@@ -21,7 +21,7 @@ std::string getPath(const std::string& relativePath) {
 #endif
 }
 
-std::vector<float> AssetManager::parseOBJFile(const std::string& path, uint32_t& vertexCount, AABB& localAABB) {
+std::vector<float> parseOBJFile(const std::string& path, uint32_t& vertexCount, AABB& localAABB) {
     tinyobj::ObjReader reader;
     std::vector<float> vertices;
 
@@ -160,10 +160,7 @@ std::vector<float> AssetManager::parseOBJFile(const char* path, uint32_t& vertex
 }
 */
 
-AssetManager::AssetManager()
-    : meshes(loadMeshes("meshes.txt")), materials(loadMaterials()) {}
-
-std::vector<MeshData> AssetManager::loadMeshes(const char* path) {
+std::vector<MeshData> loadMeshes(const char* path) {
     std::vector<MeshData> meshes;
     std::ifstream file(getPath(path));
     if (!file.is_open()) {
@@ -216,7 +213,7 @@ std::vector<MeshData> AssetManager::loadMeshes(const char* path) {
     return meshes;
 }
 
-std::vector<MaterialData> AssetManager::loadMaterials() {
+std::vector<MaterialData> loadMaterials() {
     std::vector<MaterialData> materials;
     std::vector<MaterialSSBOData> materialSSBOData;
     uint64_t cubeDiffuse = loadTexture(getPath("container2.png").c_str());
@@ -240,7 +237,7 @@ std::vector<MaterialData> AssetManager::loadMaterials() {
     return materials;
 }
 
-uint64_t AssetManager::loadSkyboxCubemap() {
+uint64_t loadSkyboxCubemap() {
     std::string paths[6] = {
         getPath("right.jpg"), getPath("left.jpg"),
         getPath("top.jpg"), getPath("bottom.jpg"),
@@ -254,7 +251,7 @@ uint64_t AssetManager::loadSkyboxCubemap() {
 }
 
 // TODO: ADD A FALL BACK TEXTURE
-uint64_t AssetManager::loadTexture(const char* path) {
+uint64_t loadTexture(const char* path) {
     GLuint textureID;
     glGenTextures(1, &textureID);
 
@@ -283,7 +280,7 @@ uint64_t AssetManager::loadTexture(const char* path) {
     return textureHandle;
 }
 
-uint64_t AssetManager::loadCubemap(const char* (&faces)[6]) {
+uint64_t loadCubemap(const char* (&faces)[6]) {
     GLuint textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);

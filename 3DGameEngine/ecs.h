@@ -6,11 +6,21 @@
 #include <cstdint>
 #include <cstring>
 #include <glm/glm.hpp>
-#include <memory>
-#include <string>
-#include <typeinfo>
-#include <unordered_map>
-#include <vector>
+
+struct WindowData {
+    uint32_t width;
+    uint32_t height;
+    const char* title; // TODO: THIS IS PROBABLY BAD
+    GLFWwindow* windowPtr;
+};
+
+struct Framebuffer {
+    GLuint buffer;
+    GLuint textureAttachment;
+    GLuint renderBufferObject;
+    uint32_t width, height;
+    uint32_t shaderID;
+};
 
 struct SceneUBOData {
     glm::mat4 viewMatrix;
@@ -27,9 +37,9 @@ struct SkyboxData {
 };
 
 struct PhysicsManifoldEntry {
-    glm::vec3 collisionNormal;
     uint32_t entityID;
     float depth;
+    glm::vec3 collisionNormal;
 };
 
 // The capacity and size of these can probably be 16 bit - but we can leave it for now
@@ -43,6 +53,49 @@ struct DeleteBuffer {
     uint32_t capacity = 64;
     uint32_t size = 0;
     uint32_t* buffer = new uint32_t[capacity];
+};
+
+enum class EventType {
+    WindowResize,
+    MouseMove,
+    Scroll
+};
+
+struct Event {
+    EventType type;
+    union {
+        struct {
+            int width, height;
+        } resize;
+        struct {
+            float xPos, yPos;
+        } mouseMove;
+        struct {
+            float yOffset;
+        } scroll;
+    };
+};
+
+// TODO: NEED TO FIND HOW MUCH SPACE I ACTUALLY NEED FOR THIS.
+struct EventQueue {
+    Event ringBuffer[128];
+    uint8_t front = 0;
+    uint8_t back = 0;
+};
+
+bool eventQueueEmpty(EventQueue& queue);
+
+// There is one index always left empty between the back and the front to distinguish between an empty queue and a full queue.
+void pushEvent(EventQueue& queue, const Event& event);
+
+Event popEvent(EventQueue& queue);
+
+bool pollEvent(EventQueue& eventQueue, Event& event);
+
+struct MouseData {
+    float lastCursorX;
+    float lastCursorY;
+    bool hasBeenRecorded;
 };
 
 GLuint createLightSSBO();
@@ -63,13 +116,15 @@ void performFrustumCulling(const std::vector<uint32_t>& renderableEntities,
                            std::vector<uint32_t>& visibleEntities,
                            const glm::vec4* frustumPlanes);
 
+Framebuffer createFrameBuffer(const uint32_t frambufferShaderID, const uint32_t width, const uint32_t height);
+GLuint createQuad();
+
 class ECS {
 public:
     ECS();
-
+    WindowData window;
     AssetManager assetManager;
 
-    static constexpr uint32_t MAX_ENTITIES = 2000000;
     uint32_t entityCount;
 
     // Currently there are no paged sparse sets as there are no sparse
@@ -98,6 +153,9 @@ public:
     SparseSet<DynamicTag> dynamicSet;
     SparseSet<HealthComponent> healthSet;
 
+    Framebuffer framebuffer;
+    GLuint quadVAO;
+    
     std::vector<uint32_t> visibleEntities;
     std::vector<PackedLightData> visiblePointLights;
     GLuint lightSSBO;
@@ -107,6 +165,12 @@ public:
 
     CollisionPhysicsManifold physicsManifold;
     DeleteBuffer deleteBuffer;
+    bool* keyStateBuffer = new bool[316];
+    EventQueue eventQueue;
+    MouseData mouseData;
 };
 
 void init(ECS& scene);
+
+void handleWindowEvent(const Event& event, WindowData& window, Framebuffer& framebuffer, CameraComponent& camera,
+                       MouseData& mouseData);

@@ -70,7 +70,7 @@ void collisionSystem(SparseSet<CollisionComponent>& collisionSet, SparseSet<Tran
                     // TODO: THIS IS A BAD HACK AND NEEDS TO BE CHANGED, SEPERATE THEM INTO SYSTEMS OR SOMETHING IDK - WE SHOULD KEEP THE MANIFOLD
                     if (physicsManifold.size < physicsManifold.capacity)
                         physicsManifold.buffer[physicsManifold.size++] = 
-                        PhysicsManifoldEntry{.collisionNormal = normal, .entityID = entity, .depth = depth};
+                        PhysicsManifoldEntry{.entityID = entity, .depth = depth, .collisionNormal = normal};
 
                     if (bulletSet.hasComponent(entity)) {
                         if (deleteBuffer.size < deleteBuffer.capacity) deleteBuffer.buffer[deleteBuffer.size++] = entity;

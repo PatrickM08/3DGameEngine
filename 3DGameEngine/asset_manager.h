@@ -33,17 +33,14 @@ struct MaterialData {
 
 std::string getPath(const std::string &relativePath);
 MeshData createUnitCubePrimitive(std::vector<MeshData>& meshes);
+std::vector<MeshData> loadMeshes(const char*);
+std::vector<MaterialData> loadMaterials();
+std::vector<float> parseOBJFile(const std::string& path, uint32_t& vertexCount, AABB& localAABB);
+uint64_t loadTexture(const char* path);
+uint64_t loadCubemap(const char* (&faces)[6]);
+uint64_t loadSkyboxCubemap();
 
-class AssetManager {
-public:
-	std::vector<MeshData> loadMeshes(const char*);
-	std::vector<MaterialData> loadMaterials();
-    std::vector<float> parseOBJFile(const std::string& path, uint32_t& vertexCount, AABB& localAABB);
-	uint64_t loadTexture(const char* path);
-    uint64_t loadCubemap(const char* (&faces)[6]);
-    uint64_t loadSkyboxCubemap();
-
-	AssetManager();
+struct AssetManager {
     std::vector<MeshData> meshes;
     std::vector<MaterialData> materials;
 };

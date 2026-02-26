@@ -7,7 +7,7 @@ struct InputDirection {
 };
 
 void worldSpaceInputSystem(const SparseSet<PlayerInputWorldTag>& inputWorldSet, SparseSet<VelocityComponent>& velocitySet,
-                           const SparseSet<SpeedComponent>& speedSet, InputDirection dir);
+                           const SparseSet<SpeedComponent>& speedSet, bool* keyStateBuffer);
 
 void tankInputSystem(const SparseSet<RotationSpeedComponent>& rotationSpeedSet, const SparseSet<SpeedComponent>& speedSet,
                      const SparseSet<PlayerInputTankTag>& inputTankSet, SparseSet<VelocityComponent>& velocitySet,

@@ -2,9 +2,7 @@
 #include <iostream>
 #include <stdexcept>
 
-Window::Window(uint32_t width, uint32_t height, const char* title)
-    : width(width), height(height), title(title)
-{
+GLFWwindow* createWindow(uint32_t width, uint32_t height, const char* title) {
     if (!glfwInit()) {
         throw std::runtime_error("Failed to initialize GLFW");
     }
@@ -13,96 +11,30 @@ Window::Window(uint32_t width, uint32_t height, const char* title)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-#ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
-
-    window = glfwCreateWindow(width, height, title, nullptr, nullptr);
-    if (!window) {
+    GLFWwindow* windowPtr = glfwCreateWindow(width, height, title, nullptr, nullptr);
+    if (!windowPtr) {
         glfwTerminate();
         throw std::runtime_error("Failed to create GLFW window");
     }
 
-    glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(windowPtr);
     glfwSwapInterval(1); // VSYNC ON = 1, OFF = 0
 
-    glfwSetWindowUserPointer(window, this);
-
-    glfwSetFramebufferSizeCallback(window, [](GLFWwindow* win, int w, int h) {
-        auto* windowPtr = static_cast<Window*>(glfwGetWindowUserPointer(win));
-        windowPtr->pushEvent(Event{ .type = EventType::WindowResize, .resize = {w, h} });
-        });
-    glfwSetCursorPosCallback(window, [](GLFWwindow* win, double xPos, double yPos) {
-        auto* windowPtr = static_cast<Window*>(glfwGetWindowUserPointer(win));
-        windowPtr->pushEvent(Event{ .type = EventType::MouseMove, .mouseMove = {(float)xPos, (float)yPos} });
-        });
-    glfwSetScrollCallback(window, [](GLFWwindow* win, double xOffset, double yOffset) {
-        auto* windowPtr = static_cast<Window*>(glfwGetWindowUserPointer(win));
-        windowPtr->pushEvent(Event{ .type = EventType::Scroll, .scroll = {(float)yOffset} });
-        });
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        glfwDestroyWindow(window);
+        glfwDestroyWindow(windowPtr);
         glfwTerminate();
         throw std::runtime_error("Failed to initialize GLAD");
     }
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    glfwSetInputMode(windowPtr, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glViewport(0, 0, width, height);
+
+    return windowPtr;
 }
 
-Window::~Window() {
-    if (window) {
-        glfwDestroyWindow(window);
+void destroyWindow(GLFWwindow* windowPtr) {
+    if (windowPtr) {
+        glfwDestroyWindow(windowPtr);
     }
     glfwTerminate();
 }
-
-void Window::pushEvent(const Event& event) {
-    eventQueue.push(event);
-}
-
-bool Window::pollEvent(Event& event) {
-    if (!eventQueue.empty()) {
-        event = eventQueue.front();
-        eventQueue.pop();
-        return true;
-    }
-    return false;
-}
-
-void Window::processEvents() {
-    glfwPollEvents();
-}
-
-GLFWwindow* Window::getGlfwWindowPtr() {
-    return window;
-}
-
-/*
-void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
-{
-    float xpos = static_cast<float>(xposIn);
-    float ypos = static_cast<float>(yposIn);
-
-    if (firstMouse)
-    {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouse = false;
-    }
-
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
-
-    lastX = xpos;
-    lastY = ypos;
-
-    camera.ProcessMouseMovement(xoffset, yoffset);
-}
-
-// glfw: whenever the mouse scroll wheel scrolls, this callback is called
-// ----------------------------------------------------------------------
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
-{
-    camera.ProcessMouseScroll(static_cast<float>(yoffset));
-}
-*/

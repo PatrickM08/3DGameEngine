@@ -1,27 +1,11 @@
 #pragma once
-#include "Window.h"
-#include "render_system.h"
 #include "ecs.h"
-#include "movement_system.h"
-#include "collision_system.h"
 
-class Application {
-private:
-    Window window;
-    GLFWwindow* windowPtr;
-    RenderSystem renderSystem;
-    bool firstMouse;
-    float lastX, lastY;
+struct Application {
     float deltaTime, lastFrame;
     ECS scene;
-    InputDirection inputDirection;
-
-private:
-    void handleWindowEvent(const Event& event);
-    void handleKeyInput();
-    void updateTiming();
-
-public:
-    Application();
-    int run();
 };
+
+void handleKeyInput(ECS& scene);
+void updateTiming(Application& app);
+int run(Application& app);

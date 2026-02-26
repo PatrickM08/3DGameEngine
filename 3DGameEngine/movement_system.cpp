@@ -4,12 +4,15 @@
 
 
 void worldSpaceInputSystem(const SparseSet<PlayerInputWorldTag>& inputWorldSet, SparseSet<VelocityComponent>& velocitySet,
-						   const SparseSet<SpeedComponent>& speedSet, InputDirection dir) {
+						   const SparseSet<SpeedComponent>& speedSet, bool* keyStateBuffer) {
+    glm::vec3 forwardVector = glm::vec3(0.0f, 0.0f, -1.0f * (float)keyStateBuffer[GLFW_KEY_W - 32]);
 	for (uint32_t entity : inputWorldSet.getEntities()) {
+        /*
 		if (dir.direction != glm::vec3(0.0f, 0.0f, 0.0f)) {
 			dir.direction = glm::normalize(dir.direction);
 		}
-		velocitySet.getComponent(entity).velocity = dir.direction * speedSet.getComponent(entity).speed;
+		*/
+		velocitySet.getComponent(entity).velocity = forwardVector * speedSet.getComponent(entity).speed;
 	}
 }
 
