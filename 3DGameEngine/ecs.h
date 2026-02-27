@@ -7,10 +7,12 @@
 #include <cstring>
 #include <glm/glm.hpp>
 
+// TODO: ADD DEFAULTS
+
 struct WindowData {
     uint32_t width;
     uint32_t height;
-    const char* title; // TODO: THIS IS PROBABLY BAD
+    const char* title; // TODO: THIS MIGHT BE BETTER AS A BUFFER CHECK LATER.
     GLFWwindow* windowPtr;
 };
 
@@ -42,17 +44,17 @@ struct PhysicsManifoldEntry {
     glm::vec3 collisionNormal;
 };
 
-// The capacity and size of these can probably be 16 bit - but we can leave it for now
+// TODO: The capacity and size of these can probably be 16 bit - but we can leave it for now
 struct CollisionPhysicsManifold {
-    uint32_t capacity = 64;
+    static constexpr uint32_t capacity = 64;
     uint32_t size = 0;
-    PhysicsManifoldEntry* buffer = new PhysicsManifoldEntry[capacity];
+    PhysicsManifoldEntry buffer[capacity];
 };
 
 struct DeleteBuffer {
-    uint32_t capacity = 64;
+    static constexpr uint32_t capacity = 64;
     uint32_t size = 0;
-    uint32_t* buffer = new uint32_t[capacity];
+    uint32_t buffer[capacity];
 };
 
 enum class EventType {
@@ -77,6 +79,7 @@ struct Event {
 };
 
 // TODO: NEED TO FIND HOW MUCH SPACE I ACTUALLY NEED FOR THIS.
+
 struct EventQueue {
     Event ringBuffer[128];
     uint8_t front = 0;
@@ -93,9 +96,11 @@ Event popEvent(EventQueue& queue);
 bool pollEvent(EventQueue& eventQueue, Event& event);
 
 struct MouseData {
-    float lastCursorX;
-    float lastCursorY;
-    bool hasBeenRecorded;
+    float lastCursorX = 0.0f;
+    float lastCursorY = 0.0f;
+    float frameOffsetX = 0.0f;
+    float frameOffsetY = 0.0f;
+    bool hasBeenRecorded = false;
 };
 
 GLuint createLightSSBO();
@@ -119,14 +124,7 @@ void performFrustumCulling(const std::vector<uint32_t>& renderableEntities,
 Framebuffer createFrameBuffer(const uint32_t frambufferShaderID, const uint32_t width, const uint32_t height);
 GLuint createQuad();
 
-class ECS {
-public:
-    ECS();
-    WindowData window;
-    AssetManager assetManager;
-
-    uint32_t entityCount;
-
+struct ECS {
     // Currently there are no paged sparse sets as there are no sparse
     // components that are spaced far apart. i.e. greater than one entity has a
     // component and these entities differ largely in entity count.
@@ -152,6 +150,12 @@ public:
     SparseSet<BulletTag> bulletSet;
     SparseSet<DynamicTag> dynamicSet;
     SparseSet<HealthComponent> healthSet;
+    SparseSet<InputMapComponent> inputMapSet;
+
+    WindowData window;
+    AssetManager assetManager;
+
+    uint32_t entityCount;
 
     Framebuffer framebuffer;
     GLuint quadVAO;
@@ -165,12 +169,14 @@ public:
 
     CollisionPhysicsManifold physicsManifold;
     DeleteBuffer deleteBuffer;
-    bool* keyStateBuffer = new bool[316];
+    float keyStateBuffer[316];
     EventQueue eventQueue;
     MouseData mouseData;
 };
 
-void init(ECS& scene);
+void initState(ECS& scene);
+
+void initScene(ECS& scene);
 
 void handleWindowEvent(const Event& event, WindowData& window, Framebuffer& framebuffer, CameraComponent& camera,
                        MouseData& mouseData);

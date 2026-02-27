@@ -3,9 +3,9 @@
 
 struct Application {
     float deltaTime, lastFrame;
-    ECS scene;
+    ECS* scene = new ECS();
 };
 
-void handleKeyInput(ECS& scene);
 void updateTiming(Application& app);
 int run(Application& app);
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);

@@ -60,6 +60,14 @@ struct HealthComponent {
     int32_t health; // TODO: THIS COULD BE 8 BYTE - DEPENDING ON GAME - ADD OPTIONS, WOULD BE ABLE TO FIT MORE INTO CACHE. ALSO MIGHT WRAPAROUND.
 };
 
+struct InputMapComponent {
+    uint16_t forwardIndex;
+    uint16_t backIndex;
+    uint16_t leftIndex;
+    uint16_t rightIndex;
+    uint16_t shootIndex;
+};
+
 struct RenderableTag {};
 
 struct PlayerInputWorldTag {};

@@ -9,26 +9,26 @@
 #include "window.h"
 #include "asset_manager.h"
 
-ECS::ECS() {
-    entityCount = 0;
-    window.width = 1600;
-    window.height = 1200;
-    window.title = "PROTOPLAY";
-    window.windowPtr = createWindow(window.width, window.height, window.title);
-    assetManager.materials = loadMaterials();
-    assetManager.meshes = loadMeshes("meshes.txt");
-    framebuffer = createFrameBuffer(createShaderProgram("fb_vertex_shader.vs", "fb_fragment_shader.fs"), window.width, window.height);
-    quadVAO = createQuad();
-    visibleEntities.reserve(2000000); // The maximum number of entities that can be rendered per pass.
-    visiblePointLights.reserve(256); // The maximum number of lights that can influence the view frustum.
-    lightSSBO = createLightSSBO();
-    skyboxData.cubemapHandle = loadSkyboxCubemap();
-    skyboxData.shaderID = createShaderProgram("skybox.vs", "skybox.fs");
-    skyboxData.meshVAO = assetManager.meshes[2].vao; // TODO: CHANGE
-    sceneUBO = createSceneUBO();
+void initState(ECS& scene) {
+    scene.entityCount = 0;
+    scene.window.width = 1600;
+    scene.window.height = 1200;
+    scene.window.title = "PROTOPLAY";
+    scene.window.windowPtr = createWindow(scene.window.width, scene.window.height, scene.window.title);
+    scene.assetManager.materials = loadMaterials();
+    scene.assetManager.meshes = loadMeshes("meshes.txt");
+    scene.framebuffer = createFrameBuffer(createShaderProgram("fb_vertex_shader.vs", "fb_fragment_shader.fs"), scene.window.width, scene.window.height);
+    scene.quadVAO = createQuad();
+    scene.visibleEntities.reserve(20000); // The maximum number of entities that can be rendered per pass.
+    scene.visiblePointLights.reserve(256); // The maximum number of lights that can influence the view frustum.
+    scene.lightSSBO = createLightSSBO();
+    scene.skyboxData.cubemapHandle = loadSkyboxCubemap();
+    scene.skyboxData.shaderID = createShaderProgram("skybox.vs", "skybox.fs");
+    scene.skyboxData.meshVAO = scene.assetManager.meshes[2].vao; // TODO: CHANGE
+    scene.sceneUBO = createSceneUBO();
 }
 
-void init(ECS& scene) {
+void initScene(ECS& scene) {
 
     scene.meshSet.add(scene.entityCount, scene.assetManager.meshes[1]);
     scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(0.0f, 15.0f, 10.0f)});
@@ -58,17 +58,28 @@ void init(ECS& scene) {
     scene.speedSet.add(scene.entityCount, SpeedComponent{5.0f});
     scene.rotationSpeedSet.add(scene.entityCount, RotationSpeedComponent{100.0f});
     scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(-5.0f, 0.5f, -2.0f)});
-    scene.inputWorldSet.add(scene.entityCount, PlayerInputWorldTag{});
+    scene.inputTankSet.add(scene.entityCount, PlayerInputTankTag{});
+    scene.inputMapSet.add(scene.entityCount, InputMapComponent{.forwardIndex = GLFW_KEY_W - 32, .backIndex = GLFW_KEY_S - 32, 
+                                                               .leftIndex = GLFW_KEY_A - 32, .rightIndex = GLFW_KEY_D - 32, 
+                                                               .shootIndex = GLFW_KEY_SPACE - 32});
     scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -0.5f, .maxX = 0.5f, .minY = -0.5f, .maxY = 0.5f, .minZ = -0.5f, .maxZ = 0.5f});
     scene.dynamicSet.add(scene.entityCount, DynamicTag{});
+    scene.healthSet.add(scene.entityCount, HealthComponent{3});
 
     ++scene.entityCount;
     scene.meshSet.add(scene.entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
     scene.materialSet.add(scene.entityCount, scene.assetManager.materials[0]);
     scene.renderableSet.add(scene.entityCount, RenderableTag{});
     scene.velocitySet.add(scene.entityCount, VelocityComponent{glm::vec3(0.0f)});
-    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(4.0f, 0.5f, -4.0f)});
+    scene.speedSet.add(scene.entityCount, SpeedComponent{5.0f});
+    scene.rotationSpeedSet.add(scene.entityCount, RotationSpeedComponent{100.0f});
+    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(5.0f, 0.5f, -2.0f)});
+    scene.inputTankSet.add(scene.entityCount, PlayerInputTankTag{});
+    scene.inputMapSet.add(scene.entityCount, InputMapComponent{.forwardIndex = GLFW_KEY_I - 32, .backIndex = GLFW_KEY_K - 32, 
+                                                               .leftIndex = GLFW_KEY_J - 32, .rightIndex = GLFW_KEY_L - 32, 
+                                                               .shootIndex = GLFW_KEY_M - 32});
     scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -0.5f, .maxX = 0.5f, .minY = -0.5f, .maxY = 0.5f, .minZ = -0.5f, .maxZ = 0.5f});
+    scene.dynamicSet.add(scene.entityCount, DynamicTag{});
     scene.healthSet.add(scene.entityCount, HealthComponent{3});
 
     ++scene.entityCount;
@@ -348,15 +359,13 @@ void handleWindowEvent(const Event& event, WindowData& window, Framebuffer& fram
             mouseData.lastCursorX = event.mouseMove.xPos;
             mouseData.lastCursorY = event.mouseMove.yPos;
             mouseData.hasBeenRecorded = true;
-        }
-
-        float xoffset = event.mouseMove.xPos - mouseData.lastCursorX;
-        float yoffset = mouseData.lastCursorY - event.mouseMove.yPos;
+        } 
+        mouseData.frameOffsetX += event.mouseMove.xPos - mouseData.lastCursorX;
+        mouseData.frameOffsetY += mouseData.lastCursorY - event.mouseMove.yPos;
 
         mouseData.lastCursorX = event.mouseMove.xPos;
         mouseData.lastCursorY = event.mouseMove.yPos;
 
-        processMouseMovement(camera, xoffset, yoffset);
         break;
     }
     case EventType::Scroll: {
