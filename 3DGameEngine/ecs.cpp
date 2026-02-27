@@ -26,6 +26,8 @@ void initState(ECS& scene) {
     scene.skyboxData.shaderID = createShaderProgram("skybox.vs", "skybox.fs");
     scene.skyboxData.meshVAO = scene.assetManager.meshes[2].vao; // TODO: CHANGE
     scene.sceneUBO = createSceneUBO();
+    std::memset(scene.keyStateBuffer, 0, sizeof(scene.keyStateBuffer));
+    std::memset(scene.lastKeyStateBuffer, 0, sizeof(scene.lastKeyStateBuffer));
 }
 
 void initScene(ECS& scene) {
@@ -59,9 +61,9 @@ void initScene(ECS& scene) {
     scene.rotationSpeedSet.add(scene.entityCount, RotationSpeedComponent{100.0f});
     scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(-5.0f, 0.5f, -2.0f)});
     scene.inputTankSet.add(scene.entityCount, PlayerInputTankTag{});
-    scene.inputMapSet.add(scene.entityCount, InputMapComponent{.forwardIndex = GLFW_KEY_W - 32, .backIndex = GLFW_KEY_S - 32, 
-                                                               .leftIndex = GLFW_KEY_A - 32, .rightIndex = GLFW_KEY_D - 32, 
-                                                               .shootIndex = GLFW_KEY_SPACE - 32});
+    scene.inputMapSet.add(scene.entityCount, InputMapComponent{.forwardIndex = GLFW_KEY_W - 31, .backIndex = GLFW_KEY_S - 31, 
+                                                               .leftIndex = GLFW_KEY_A - 31, .rightIndex = GLFW_KEY_D - 31, 
+                                                               .shootIndex = GLFW_KEY_SPACE - 31});
     scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -0.5f, .maxX = 0.5f, .minY = -0.5f, .maxY = 0.5f, .minZ = -0.5f, .maxZ = 0.5f});
     scene.dynamicSet.add(scene.entityCount, DynamicTag{});
     scene.healthSet.add(scene.entityCount, HealthComponent{3});
@@ -75,9 +77,9 @@ void initScene(ECS& scene) {
     scene.rotationSpeedSet.add(scene.entityCount, RotationSpeedComponent{100.0f});
     scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(5.0f, 0.5f, -2.0f)});
     scene.inputTankSet.add(scene.entityCount, PlayerInputTankTag{});
-    scene.inputMapSet.add(scene.entityCount, InputMapComponent{.forwardIndex = GLFW_KEY_I - 32, .backIndex = GLFW_KEY_K - 32, 
-                                                               .leftIndex = GLFW_KEY_J - 32, .rightIndex = GLFW_KEY_L - 32, 
-                                                               .shootIndex = GLFW_KEY_M - 32});
+    scene.inputMapSet.add(scene.entityCount, InputMapComponent{.forwardIndex = GLFW_KEY_I - 31, .backIndex = GLFW_KEY_K - 31, 
+                                                               .leftIndex = GLFW_KEY_J - 31, .rightIndex = GLFW_KEY_L - 31, 
+                                                               .shootIndex = GLFW_KEY_M - 31});
     scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -0.5f, .maxX = 0.5f, .minY = -0.5f, .maxY = 0.5f, .minZ = -0.5f, .maxZ = 0.5f});
     scene.dynamicSet.add(scene.entityCount, DynamicTag{});
     scene.healthSet.add(scene.entityCount, HealthComponent{3});
@@ -373,4 +375,30 @@ void handleWindowEvent(const Event& event, WindowData& window, Framebuffer& fram
         break;
     }
     }
+}
+
+void bulletSystem(ECS& scene) {
+    for (uint32_t entity : scene.inputMapSet.getEntities()) {
+        const TransformComponent& transform = scene.transformSet.getComponent(entity);
+        const InputMapComponent& inputMap = scene.inputMapSet.getComponent(entity);
+        if (scene.keyStateBuffer[inputMap.shootIndex] && !scene.lastKeyStateBuffer[inputMap.shootIndex]) {
+            createBullet(scene, transform.position, transform.rotation);
+            scene.keyStateBuffer[inputMap.shootIndex] = 0.0f;
+        }
+    }
+}
+
+void createBullet(ECS& scene, glm::vec3 position, glm::quat rotation) {
+    ++scene.entityCount;
+    scene.meshSet.add(scene.entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
+    scene.materialSet.add(scene.entityCount, scene.assetManager.materials[0]);
+    scene.renderableSet.add(scene.entityCount, RenderableTag{});
+    glm::vec3 front = rotation * glm::vec3(0.0f, 0.0f, -1.0f);
+    float bulletOffset = 1.0f;
+    position += bulletOffset * front;
+    scene.transformSet.add(scene.entityCount, TransformComponent{.position = position, .scale = glm::vec3(0.2f)});
+    scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -0.1f, .maxX = 0.1f, .minY = -0.1f, .maxY = 0.1f, .minZ = -0.1f, .maxZ = 0.1f});
+    scene.velocitySet.add(scene.entityCount, VelocityComponent{glm::vec3(5.0f * front)});
+    scene.bulletSet.add(scene.entityCount, BulletTag{});
+    scene.dynamicSet.add(scene.entityCount, DynamicTag{});
 }

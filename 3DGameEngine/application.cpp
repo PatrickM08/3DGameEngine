@@ -67,6 +67,7 @@ int run(Application& app) {
         noClipInputSystem(scene.inputNoClipSet, scene.speedSet, scene.velocitySet, scene.inputMapSet, scene.keyStateBuffer, camera.front,camera.right);
         patrolSystem(scene.patrolSet, scene.speedSet, scene.velocitySet, app.deltaTime);
         movementSystem(scene.velocitySet, scene.transformSet, scene.cameraSet, app.deltaTime);
+        bulletSystem(scene);
         collisionSystem(scene.collisionSet, scene.transformSet, scene.dynamicSet, scene.bulletSet, scene.healthSet,
                         scene.physicsManifold, scene.deleteBuffer);
         resolveCollisions(scene.physicsManifold, scene.transformSet, scene.velocitySet);
@@ -83,6 +84,7 @@ int run(Application& app) {
         auto end = std::chrono::steady_clock::now();
         glfwSwapBuffers(windowPtr);
         deleteSystem(scene);
+        std::memcpy(scene.lastKeyStateBuffer, scene.keyStateBuffer, sizeof(scene.keyStateBuffer));
         std::cout << "all Systems: " << end - start << "\n";
     }
     return 0;
@@ -109,25 +111,18 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     case GLFW_KEY_K:
     case GLFW_KEY_J:
     case GLFW_KEY_L:
+    case GLFW_KEY_SPACE:
+    case GLFW_KEY_M:
         switch (action) {
         case GLFW_PRESS:
-            scene->keyStateBuffer[key - 32] = 1.0f;
+            scene->keyStateBuffer[key - 31] = 1.0f;
             break;
         case GLFW_RELEASE:
-            scene->keyStateBuffer[key - 32] = 0.0f;
+            scene->keyStateBuffer[key - 31] = 0.0f;
             break;
         case GLFW_REPEAT:
             break;
         // TODO: MAYBE ADD AN UNREACHABLE FLAG HERE
-        }
-        break;
-    case GLFW_KEY_SPACE:
-    case GLFW_KEY_M:
-        if (action == GLFW_PRESS) {
-            uint32_t player = scene->inputTankSet.entities[0];
-            glm::vec3 position = scene->transformSet.getComponent(player).position;
-            glm::quat rotation = scene->transformSet.getComponent(player).rotation;
-            createBullet(*scene, position, rotation);
         }
         break;
     }

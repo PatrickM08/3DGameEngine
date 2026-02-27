@@ -169,7 +169,9 @@ struct ECS {
 
     CollisionPhysicsManifold physicsManifold;
     DeleteBuffer deleteBuffer;
-    float keyStateBuffer[316];
+    // TODO: so the idea is that allowing 0 as null will make it easier to have a null mapping, but I need to check performance compared to tags.
+    float keyStateBuffer[318];
+    float lastKeyStateBuffer[318];
     EventQueue eventQueue;
     MouseData mouseData;
 };
@@ -180,3 +182,7 @@ void initScene(ECS& scene);
 
 void handleWindowEvent(const Event& event, WindowData& window, Framebuffer& framebuffer, CameraComponent& camera,
                        MouseData& mouseData);
+
+void createBullet(ECS& scene, glm::vec3 position, glm::quat rotation);
+
+void bulletSystem(ECS& scene);

@@ -68,15 +68,14 @@ void collisionSystem(SparseSet<CollisionComponent>& collisionSet, SparseSet<Tran
                     }
 
                     // TODO: THIS IS A BAD HACK AND NEEDS TO BE CHANGED, SEPERATE THEM INTO SYSTEMS OR SOMETHING IDK - WE SHOULD KEEP THE MANIFOLD
-                    if (physicsManifold.size < physicsManifold.capacity)
-                        physicsManifold.buffer[physicsManifold.size++] = 
-                        PhysicsManifoldEntry{.entityID = entity, .depth = depth, .collisionNormal = normal};
-
                     if (bulletSet.hasComponent(entity)) {
                         if (deleteBuffer.size < deleteBuffer.capacity) deleteBuffer.buffer[deleteBuffer.size++] = entity;
                         if (healthSet.hasComponent(obstacleEntity)) {
                             --healthSet.getComponent(obstacleEntity).health;
                         }
+                    } else if (physicsManifold.size < physicsManifold.capacity && !bulletSet.hasComponent(obstacleEntity)) {
+                        physicsManifold.buffer[physicsManifold.size++] =
+                            PhysicsManifoldEntry{.entityID = entity, .depth = depth, .collisionNormal = normal};
                     }
 
                 }
@@ -249,6 +248,13 @@ void deleteSystem(ECS& scene) {
     for (uint32_t i = 0; i < size; ++i) {
         if (deleteBuffer[i] == last) continue;
         scene.healthSet.remove(deleteBuffer[i]);
+        last = deleteBuffer[i];
+    }
+
+    last = UINT32_MAX;
+    for (uint32_t i = 0; i < size; ++i) {
+        if (deleteBuffer[i] == last) continue;
+        scene.inputMapSet.remove(deleteBuffer[i]);
         last = deleteBuffer[i];
     }
 }
