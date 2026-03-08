@@ -9,126 +9,127 @@
 // GET AND REMOVE BOTH ASSUME THAT HAS WILL BE CALLED FIRST, IT IS THE RESPONSIBILITY OF THE CALLER
 // (the idea is getComponent and remove may be called in succession so we wouldn't want a redundant hasComponent check)
 
-// Sparse vector should have a generous reserved size when the rough amount of entities are known to avoid heap allocations, 
-// however in the context of a prototyping engine, rather than your own game, this may not be appropriate, 
+// Sparse vector should have a generous reserved size when the rough amount of entities are known to avoid heap allocations,
+// however in the context of a prototyping engine, rather than your own game, this may not be appropriate,
 // and is therefore left without reservation.
 template <typename Component>
 class SparseSet {
 public:
-	std::vector<uint32_t> sparse;
-	std::vector<Component> dense;
-	std::vector<uint32_t> entities;
+    std::vector<uint32_t> sparse;
+    std::vector<Component> dense;
+    std::vector<uint32_t> entities;
 
-	static constexpr uint32_t INVALID_INDEX = UINT32_MAX;
+    static constexpr uint32_t INVALID_INDEX = UINT32_MAX;
 
-	bool hasComponent(uint32_t entityID) const {
-		if (entityID >= sparse.size()) return false;
-		uint32_t denseIndex = sparse[entityID];
-		return denseIndex < dense.size() && entities[denseIndex] == entityID;
-	}
+    bool hasComponent(uint32_t entityID) const {
+        if (entityID >= sparse.size()) return false;
+        uint32_t denseIndex = sparse[entityID];
+        return denseIndex < dense.size() && entities[denseIndex] == entityID;
+    }
 
-	// Read component
-	const Component& getComponent(uint32_t entityID) const {
+    // Read component
+    const Component& getComponent(uint32_t entityID) const {
         uint32_t denseIndex = sparse[entityID];
         return dense[denseIndex];
     }
 
-	// Write to component
-	Component& getComponent(uint32_t entityID) {
-		uint32_t denseIndex = sparse[entityID];
-		return dense[denseIndex];
-	}
+    // Write to component
+    Component& getComponent(uint32_t entityID) {
+        uint32_t denseIndex = sparse[entityID];
+        return dense[denseIndex];
+    }
 
-	void add(uint32_t entityID, const Component& component) {
-		if (entityID >= sparse.size()) {
-			sparse.resize(entityID + 1, INVALID_INDEX);
-		}
-		dense.push_back(component);
-		sparse[entityID] = dense.size() - 1;
-		entities.push_back(entityID);
-	}
+    void add(uint32_t entityID, const Component& component) {
+        if (entityID >= sparse.size()) {
+            sparse.resize(entityID + 1, INVALID_INDEX);
+        }
+        dense.push_back(component);
+        sparse[entityID] = dense.size() - 1;
+        entities.push_back(entityID);
+    }
 
-	void remove(uint32_t entityID) {
-		if (entityID >= sparse.size() || sparse[entityID] == INVALID_INDEX) {
-			return;
-		}
-		uint32_t denseIndex = sparse[entityID];
-		uint32_t denseLast = dense.size() - 1;
-		uint32_t entitiesLast = entities[denseLast];
-		dense[denseIndex] = dense[denseLast];
-		entities[denseIndex] = entitiesLast;
-		sparse[entitiesLast] = denseIndex;
-		dense.pop_back();
-		entities.pop_back();
+    void remove(uint32_t entityID) {
+        if (entityID >= sparse.size() || sparse[entityID] == INVALID_INDEX) {
+            return;
+        }
+        uint32_t denseIndex = sparse[entityID];
+        uint32_t denseLast = dense.size() - 1;
+        uint32_t entitiesLast = entities[denseLast];
+        dense[denseIndex] = dense[denseLast];
+        entities[denseIndex] = entitiesLast;
+        sparse[entitiesLast] = denseIndex;
+        dense.pop_back();
+        entities.pop_back();
         sparse[entityID] = INVALID_INDEX;
-	}
+    }
 
-	const std::vector<uint32_t>& getEntities() const {
-		return entities;
-	}
+    const std::vector<uint32_t>& getEntities() const {
+        return entities;
+    }
 };
 
 inline const uint32_t PAGE_SIZE = 512;
 struct SparseSetPage {
     uint32_t data[PAGE_SIZE];
-    SparseSetPage() { std::fill(std::begin(data), std::end(data), UINT32_MAX); } // Required due to possible garbage data access
+    SparseSetPage() {
+        std::fill(std::begin(data), std::end(data), UINT32_MAX);
+    } // Required due to possible garbage data access
 };
 
 // PAGED SHOULD ONLY BE USED FOR INIT ENTITIES UNTIL WE HAVE VERSION CONTROL
 template <typename Component>
 class PagedSparseSet {
 public:
-	std::vector<std::unique_ptr<SparseSetPage>> sparsePages;
-	std::vector<Component> dense;
-	std::vector<uint32_t> entities;
+    std::vector<std::unique_ptr<SparseSetPage>> sparsePages;
+    std::vector<Component> dense;
+    std::vector<uint32_t> entities;
 
-	bool hasComponent(uint32_t entityID) const {
+    bool hasComponent(uint32_t entityID) const {
         uint32_t pageIndex = entityID / PAGE_SIZE;
         if (pageIndex >= sparsePages.size() || sparsePages[pageIndex] == nullptr) return false;
-		uint32_t denseIndex = sparsePages[pageIndex]->data[entityID % PAGE_SIZE];
-		return denseIndex != UINT32_MAX && denseIndex < dense.size() && entities[denseIndex] == entityID;
-	}
+        uint32_t denseIndex = sparsePages[pageIndex]->data[entityID % PAGE_SIZE];
+        return denseIndex != UINT32_MAX && denseIndex < dense.size() && entities[denseIndex] == entityID;
+    }
 
-	const Component& getComponent(uint32_t entityID) const {
+    const Component& getComponent(uint32_t entityID) const {
         uint32_t pageIndex = entityID / PAGE_SIZE;
         uint32_t denseIndex = sparsePages[pageIndex]->data[entityID % PAGE_SIZE];
         return dense[denseIndex];
     }
 
-	Component& getComponent(uint32_t entityID) {
-        uint32_t pageIndex = entityID / PAGE_SIZE;
-		uint32_t denseIndex = sparsePages[pageIndex]->data[entityID % PAGE_SIZE];
-		return dense[denseIndex];
-	}
-
-	void add(uint32_t entityID, const Component& component) {
-		uint32_t pageIndex = entityID / PAGE_SIZE;
-		if (pageIndex >= sparsePages.size()) {
-			sparsePages.resize(pageIndex + 1);
-		}
-		if (sparsePages[pageIndex] == nullptr) {
-			sparsePages[pageIndex] = std::make_unique<SparseSetPage>();
-		}
-		dense.push_back(component);
-		sparsePages[pageIndex]->data[entityID % PAGE_SIZE] = dense.size() - 1;
-		entities.push_back(entityID);
-	}
-
-	void remove(uint32_t entityID) {
+    Component& getComponent(uint32_t entityID) {
         uint32_t pageIndex = entityID / PAGE_SIZE;
         uint32_t denseIndex = sparsePages[pageIndex]->data[entityID % PAGE_SIZE];
-		uint32_t denseLast = dense.size() - 1;
-		uint32_t entitiesLast = entities[denseLast];
-		dense[denseIndex] = dense[denseLast];
-		entities[denseIndex] = entitiesLast;
-        uint32_t lastEntityPageIndex = entitiesLast / PAGE_SIZE; 
+        return dense[denseIndex];
+    }
+
+    void add(uint32_t entityID, const Component& component) {
+        uint32_t pageIndex = entityID / PAGE_SIZE;
+        if (pageIndex >= sparsePages.size()) {
+            sparsePages.resize(pageIndex + 1);
+        }
+        if (sparsePages[pageIndex] == nullptr) {
+            sparsePages[pageIndex] = std::make_unique<SparseSetPage>();
+        }
+        dense.push_back(component);
+        sparsePages[pageIndex]->data[entityID % PAGE_SIZE] = dense.size() - 1;
+        entities.push_back(entityID);
+    }
+
+    void remove(uint32_t entityID) {
+        uint32_t pageIndex = entityID / PAGE_SIZE;
+        uint32_t denseIndex = sparsePages[pageIndex]->data[entityID % PAGE_SIZE];
+        uint32_t denseLast = dense.size() - 1;
+        uint32_t entitiesLast = entities[denseLast];
+        dense[denseIndex] = dense[denseLast];
+        entities[denseIndex] = entitiesLast;
+        uint32_t lastEntityPageIndex = entitiesLast / PAGE_SIZE;
         sparsePages[lastEntityPageIndex]->data[entitiesLast % PAGE_SIZE] = denseIndex;
-		dense.pop_back();
-		entities.pop_back();
-	}
+        dense.pop_back();
+        entities.pop_back();
+    }
 
-	const std::vector<uint32_t>& getEntities() const {
-		return entities;
-	}
+    const std::vector<uint32_t>& getEntities() const {
+        return entities;
+    }
 };
-
