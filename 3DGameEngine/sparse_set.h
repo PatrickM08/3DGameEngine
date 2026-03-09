@@ -4,27 +4,27 @@
 #include <memory>
 #include <algorithm>
 
-// TODO: USE AN ARENA FOR THE THREE ARRAYS, PROBABLY REMOVE THE TEMPLATE - HAVE TO THINK ABOUT HOW EASY IT IS TO CREATE A COMPONENT FOR THE USER THOUGH.
+// WE SHOULD MAKE THIS DYNAMIC PER ENTITY
+static constexpr uint32_t MAX_ENTITIES = 200000;
+static constexpr uint32_t INVALID_INDEX = UINT32_MAX;
 
-// GET AND REMOVE BOTH ASSUME THAT HAS WILL BE CALLED FIRST, IT IS THE RESPONSIBILITY OF THE CALLER
-// (the idea is getComponent and remove may be called in succession so we wouldn't want a redundant hasComponent check)
-
-// Sparse vector should have a generous reserved size when the rough amount of entities are known to avoid heap allocations,
-// however in the context of a prototyping engine, rather than your own game, this may not be appropriate,
-// and is therefore left without reservation.
 template <typename Component>
 class SparseSet {
 public:
-    std::vector<uint32_t> sparse;
-    std::vector<Component> dense;
-    std::vector<uint32_t> entities;
+    uint32_t sparse[MAX_ENTITIES];
+    Component dense[MAX_ENTITIES];
+    uint32_t entities[MAX_ENTITIES];
+    uint32_t entityCount;
 
-    static constexpr uint32_t INVALID_INDEX = UINT32_MAX;
+    SparseSet() {
+        std::fill(sparse, sparse + MAX_ENTITIES, INVALID_INDEX);
+        entityCount = 0;
+    }
 
     bool hasComponent(uint32_t entityID) const {
-        if (entityID >= sparse.size()) return false;
+        if (entityID >= MAX_ENTITIES) return false;
         uint32_t denseIndex = sparse[entityID];
-        return denseIndex < dense.size() && entities[denseIndex] == entityID;
+        return denseIndex != INVALID_INDEX;
     }
 
     // Read component
@@ -40,33 +40,28 @@ public:
     }
 
     void add(uint32_t entityID, const Component& component) {
-        if (entityID >= sparse.size()) {
-            sparse.resize(entityID + 1, INVALID_INDEX);
-        }
-        dense.push_back(component);
-        sparse[entityID] = dense.size() - 1;
-        entities.push_back(entityID);
+        if (entityCount >= MAX_ENTITIES - 1) return;
+        dense[entityCount] = component;
+        sparse[entityID] = entityCount;
+        entities[entityCount] = entityID;
+        ++entityCount;
     }
 
     void remove(uint32_t entityID) {
-        if (entityID >= sparse.size() || sparse[entityID] == INVALID_INDEX) {
+        if (entityID >= MAX_ENTITIES || sparse[entityID] == INVALID_INDEX) {
             return;
         }
         uint32_t denseIndex = sparse[entityID];
-        uint32_t denseLast = dense.size() - 1;
+        uint32_t denseLast = entityCount - 1;
         uint32_t entitiesLast = entities[denseLast];
         dense[denseIndex] = dense[denseLast];
         entities[denseIndex] = entitiesLast;
         sparse[entitiesLast] = denseIndex;
-        dense.pop_back();
-        entities.pop_back();
+        --entityCount;
         sparse[entityID] = INVALID_INDEX;
     }
-
-    const std::vector<uint32_t>& getEntities() const {
-        return entities;
-    }
 };
+
 
 inline const uint32_t PAGE_SIZE = 512;
 struct SparseSetPage {

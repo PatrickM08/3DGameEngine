@@ -5,7 +5,8 @@
 
 void worldSpaceInputSystem(const SparseSet<PlayerInputWorldTag>& inputWorldSet, SparseSet<VelocityComponent>& velocitySet,
 						   const SparseSet<SpeedComponent>& speedSet, const SparseSet<InputMapComponent>& inputMapSet, float* keyStateBuffer) {
-	for (uint32_t entity : inputWorldSet.getEntities()) {
+    for (uint32_t i = 0; i < inputWorldSet.entityCount; ++i) {
+        uint32_t entity = inputWorldSet.entities[i];
         const InputMapComponent& inputMap = inputMapSet.getComponent(entity);
         glm::vec3 direction(
             static_cast<float>(keyStateBuffer[inputMap.rightIndex] - keyStateBuffer[inputMap.leftIndex]),
@@ -29,7 +30,8 @@ void tankInputSystem(const SparseSet<RotationSpeedComponent>& rotationSpeedSet, 
                      const SparseSet<PlayerInputTankTag>& inputTankSet, SparseSet<VelocityComponent>& velocitySet,
                      SparseSet<TransformComponent>& transformSet, float deltaTime, float* keyStateBuffer, 
                      const SparseSet<InputMapComponent>& inputMapSet) {
-	for (uint32_t entity : inputTankSet.getEntities()) {
+    for (uint32_t i = 0; i < inputTankSet.entityCount; ++i) {
+        uint32_t entity = inputTankSet.entities[i];
         const InputMapComponent& inputMap = inputMapSet.getComponent(entity);
 		TransformComponent& transform = transformSet.getComponent(entity);
 		const RotationSpeedComponent& rotationSpeed = rotationSpeedSet.getComponent(entity);
@@ -48,7 +50,8 @@ void tankInputSystem(const SparseSet<RotationSpeedComponent>& rotationSpeedSet, 
 void noClipInputSystem(const SparseSet<PlayerInputNoClipTag>& inputNoClipSet, const SparseSet<SpeedComponent>& speedSet, 
 					   SparseSet<VelocityComponent>& velocitySet, const SparseSet<InputMapComponent>& inputMapSet, 
 					   float* keyStateBuffer, const glm::vec3& front, const glm::vec3& right) {
-	for (uint32_t entity : inputNoClipSet.getEntities()) {
+    for (uint32_t i = 0; i < inputNoClipSet.entityCount; ++i) {
+        uint32_t entity = inputNoClipSet.entities[i];
         const InputMapComponent& inputMap = inputMapSet.getComponent(entity);
 		VelocityComponent& velocity = velocitySet.getComponent(entity);
         const SpeedComponent& speed = speedSet.getComponent(entity);
@@ -61,7 +64,8 @@ void noClipInputSystem(const SparseSet<PlayerInputNoClipTag>& inputNoClipSet, co
 
 void patrolSystem(SparseSet<PatrolComponent>& patrolSet, const SparseSet<SpeedComponent>& speedSet, 
 				  SparseSet<VelocityComponent>& velocitySet, float deltaTime) {
-	for (uint32_t entity : patrolSet.getEntities()) {
+    for (uint32_t i = 0; i < patrolSet.entityCount; ++i) {
+        uint32_t entity = patrolSet.entities[i];
 		auto& patrol = patrolSet.getComponent(entity);
 		auto& speed = speedSet.getComponent(entity);
 		auto& velocity = velocitySet.getComponent(entity);
@@ -82,7 +86,8 @@ void patrolSystem(SparseSet<PatrolComponent>& patrolSet, const SparseSet<SpeedCo
 
 void movementSystem(const SparseSet<VelocityComponent>& velocitySet, SparseSet<TransformComponent>& transformSet, 
 					SparseSet<CameraComponent>& cameraSet, float deltaTime) {
-	for (uint32_t entity : velocitySet.getEntities()) {
+    for (uint32_t i = 0; i < velocitySet.entityCount; ++i) {
+        uint32_t entity = velocitySet.entities[i];
 		auto& transform = transformSet.getComponent(entity);
 		auto& velocity = velocitySet.getComponent(entity);
 

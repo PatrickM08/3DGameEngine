@@ -141,15 +141,17 @@ GLuint createLightSSBO() {
     return lightSSBO;
 }
 
-void performLightCulling(const SparseSet<PointLightComponent>& pointLightEntities,
+void performLightCulling(const SparseSet<PointLightComponent>& pointLightSet,
                          const SparseSet<TransformComponent>& transformSet,
                          std::vector<PackedLightData>& visiblePointLights,
                          const glm::vec4* frustumPlanes) {
 
     visiblePointLights.clear();
 
-    for (uint32_t entity : pointLightEntities.getEntities()) {
-        const auto& light = pointLightEntities.getComponent(entity);
+   for (uint32_t i = 0; i < pointLightSet.entityCount; ++i) {
+        uint32_t entity = pointLightSet.entities[i];
+
+        const auto& light = pointLightSet.getComponent(entity);
         const auto& transform = transformSet.getComponent(entity);
 
         bool isInside = true;
@@ -176,14 +178,15 @@ void uploadLightSSBO(const GLuint lightSSBO, const std::vector<PackedLightData>&
     glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, visiblePointLights.size() * sizeof(PackedLightData), visiblePointLights.data());
 }
 
-void performFrustumCulling(const std::vector<uint32_t>& renderableEntities, // TODO: KIND OF WEIRD
+void performFrustumCulling(const SparseSet<RenderableTag>& renderableSet,
                            const SparseSet<TransformComponent>& transformSet,
                            const SparseSet<MeshData>& meshSet,
                            std::vector<uint32_t>& visibleEntities,
                            const glm::vec4* frustumPlanes) {
 
     visibleEntities.clear();
-    for (uint32_t entity : renderableEntities) {
+    for (uint32_t i = 0; i < renderableSet.entityCount; ++i) {
+        uint32_t entity = renderableSet.entities[i];
         const TransformComponent& transform = transformSet.getComponent(entity);
         const MeshData& mesh = meshSet.getComponent(entity);
 
@@ -344,12 +347,17 @@ void handleWindowEvent(const Event& event, WindowData& window, Framebuffer& fram
 }
 
 void bulletSystem(ECS& scene) {
-    for (uint32_t entity : scene.inputMapSet.getEntities()) {
-        const TransformComponent& transform = scene.transformSet.getComponent(entity);
-        const InputMapComponent& inputMap = scene.inputMapSet.getComponent(entity);
-        if (scene.keyStateBuffer[inputMap.shootIndex] && !scene.lastKeyStateBuffer[inputMap.shootIndex]) {
+    SparseSet<InputMapComponent>& inputMapSet = scene.inputMapSet;
+    float* keyStateBuffer = scene.keyStateBuffer;
+    float* lastKeyStateBuffer = scene.lastKeyStateBuffer;
+    SparseSet<TransformComponent>& transformSet = scene.transformSet;
+    for (uint32_t i = 0; i < inputMapSet.entityCount; ++i) {
+        uint32_t entity = inputMapSet.entities[i];
+        const TransformComponent& transform = transformSet.getComponent(entity);
+        const InputMapComponent& inputMap = inputMapSet.getComponent(entity);
+        if (keyStateBuffer[inputMap.shootIndex] && !lastKeyStateBuffer[inputMap.shootIndex]) {
             createBullet(scene, transform.position, transform.rotation);
-            scene.keyStateBuffer[inputMap.shootIndex] = 0.0f;
+            keyStateBuffer[inputMap.shootIndex] = 0.0f;
         }
     }
 }

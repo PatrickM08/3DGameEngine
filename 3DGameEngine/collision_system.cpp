@@ -5,20 +5,20 @@ void collisionSystem(SparseSet<CollisionComponent>& collisionSet, SparseSet<Tran
                      SparseSet<DynamicTag>& dynamicSet, SparseSet<BulletTag>& bulletSet, SparseSet<HealthComponent>& healthSet,
                      CollisionPhysicsManifold& physicsManifold, DeleteBuffer& deleteBuffer) {
     
-    const std::vector<uint32_t>& collisionEntities = collisionSet.getEntities();
-    uint32_t collisionSetSize = collisionEntities.size();
-    const std::vector<uint32_t>& dynamicEntities = dynamicSet.getEntities();
-    uint32_t dynamicSetSize = dynamicEntities.size();
+    const uint32_t* collisionEntities = collisionSet.entities;
+    uint32_t collisionSetSize = collisionSet.entityCount;
+    const uint32_t* dynamicEntities = dynamicSet.entities;
+    uint32_t dynamicSetSize = dynamicSet.entityCount;
 
-    for (uint32_t i = 0; i < dynamicSetSize; i++) {
-        uint32_t entity = dynamicEntities[i]; // TODO: THIS WORKS BUT IT MIGHT BE A HACK.
+    for (uint32_t i = 0; i < dynamicSetSize; ++i) {
+        uint32_t entity = dynamicEntities[i];
         
         TransformComponent& transform = transformSet.getComponent(entity);
         CollisionComponent& boundingBox = collisionSet.getComponent(entity);
 
         glm::vec3 position = transform.position;
 
-        for (uint32_t j = 0; j < collisionSetSize; j++) {
+        for (uint32_t j = 0; j < collisionSetSize; ++j) {
             uint32_t obstacleEntity = collisionEntities[j];
             if (entity != obstacleEntity) {
                 glm::vec3 obstaclePos = glm::vec3(transformSet.getComponent(obstacleEntity).position);
@@ -100,7 +100,7 @@ void resolveCollisions(CollisionPhysicsManifold& physicsManifold, SparseSet<Tran
 
 
 void healthSystem(SparseSet<HealthComponent>& healthSet, DeleteBuffer& deleteBuffer) {
-    for (int i = 0; i < healthSet.dense.size(); ++i) {
+    for (int i = 0; i < healthSet.entityCount; ++i) {
         if (healthSet.dense[i].health <= 0 && deleteBuffer.size < deleteBuffer.capacity) {
             deleteBuffer.buffer[deleteBuffer.size++] = healthSet.entities[i];
         }

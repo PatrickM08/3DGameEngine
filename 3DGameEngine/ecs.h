@@ -115,7 +115,7 @@ void updateSceneData(SceneUBOData& sceneData, const CameraComponent& camera,
                     const std::vector<PackedLightData>& visiblePointLights, const SkyboxData& skyboxData);
 void uploadSceneUBO(const GLuint sceneUBO, const SceneUBOData sceneData);
 
-void performFrustumCulling(const std::vector<uint32_t>& renderableEntities,
+void performFrustumCulling(const SparseSet<RenderableTag>& renderableEntities,
                            const SparseSet<TransformComponent>& transformSet,
                            const SparseSet<MeshData>& meshSet,
                            std::vector<uint32_t>& visibleEntities,

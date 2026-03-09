@@ -31,12 +31,12 @@ int run(Application& app) {
         auto start = std::chrono::steady_clock::now();
 
         // Fetch current camera TODO: CHANGE THIS
-        if (scene.cameraSet.getEntities().empty()) {
+        if (scene.cameraSet.entityCount == 0) {
             std::cerr << "[ERROR] No camera found in scene!\n";
             return -1;
         }
 
-        uint32_t camEntity = scene.cameraSet.getEntities()[0];
+        uint32_t camEntity = scene.cameraSet.entities[0];
         CameraComponent& camera = scene.cameraSet.getComponent(camEntity);
 
         // TODO: FIND THE CORRECT PLACE TO CLEAR BUFFERS
@@ -76,7 +76,7 @@ int run(Application& app) {
         uploadLightSSBO(scene.lightSSBO, scene.visiblePointLights);
         updateSceneData(scene.sceneData, scene.cameraSet.dense[0], scene.visiblePointLights, scene.skyboxData);
         uploadSceneUBO(scene.sceneUBO, scene.sceneData);
-        performFrustumCulling(scene.renderableSet.entities, scene.transformSet, scene.meshSet, 
+        performFrustumCulling(scene.renderableSet, scene.transformSet, scene.meshSet, 
                               scene.visibleEntities, scene.cameraSet.dense[0].frustumPlanes);
         renderSystem(scene.visibleEntities, scene.materialSet, scene.meshSet, scene.transformSet, scene.framebuffer);
         renderSkybox(scene.skyboxData);
