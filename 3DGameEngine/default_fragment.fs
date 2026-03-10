@@ -23,9 +23,9 @@ layout(std430, binding = 0) readonly buffer LightBuffer {
 };
 
 struct Material {
+    vec4 colourAndShine;
     sampler2D diffuseTexture;
     sampler2D specularTexture;
-    float shininess;
 };
 
 
@@ -46,8 +46,9 @@ void main()
     vec3 specularTextureColour = vec3(texture(material.specularTexture, texCoords));
     vec3 norm = normalize(normal);
     for (int i = 0; i < sceneData.pointLightCount; i++){
-        result += CalcPointLight(pointLights[i], norm, fragPos, viewDir, textureColour, specularTextureColour, material.shininess);
+        result += CalcPointLight(pointLights[i], norm, fragPos, viewDir, textureColour, specularTextureColour, material.colourAndShine.w);
     }
+    result = result * material.colourAndShine.xyz;
     FragColor = vec4(result, 1.0);
 }
 
@@ -68,10 +69,10 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, v
     float attenuation = (1.0 - ratio * ratio);
     attenuation *= attenuation;
     // combine results
-    vec3 ambient  = lightColourAndIntensity * textureColour;
+    float ambientConstant = 0.2;
+    vec3 ambient  = lightColourAndIntensity * textureColour * ambientConstant;
     vec3 diffuse  = lightColourAndIntensity * diff * textureColour;
     vec3 specular = lightColourAndIntensity * spec * specularTextureColour;
-    ambient *= attenuation;
     diffuse *= attenuation;
     specular *= attenuation;
     return (ambient + diffuse + specular);

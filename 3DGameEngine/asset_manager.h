@@ -19,9 +19,9 @@ struct MeshData {
 };
 
 struct MaterialSSBOData {
+    glm::vec4 colourAndShine;
     uint64_t diffuseTextureHandle;
     uint64_t specularTextureHandle;
-    float shininess;
 };
 
 struct MaterialData {
@@ -32,15 +32,9 @@ struct MaterialData {
 };
 
 std::string getPath(const std::string &relativePath);
-MeshData createUnitCubePrimitive(std::vector<MeshData>& meshes);
-std::vector<MeshData> loadMeshes(const char*);
-std::vector<MaterialData> loadMaterials();
 std::vector<float> parseOBJFile(const std::string& path, uint32_t& vertexCount, AABB& localAABB);
 uint64_t loadTexture(const char* path);
 uint64_t loadCubemap(const char* (&faces)[6]);
 uint64_t loadSkyboxCubemap();
-
-struct AssetManager {
-    std::vector<MeshData> meshes;
-    std::vector<MaterialData> materials;
-};
+void updateMaterialColor(GLuint ssbo, uint32_t index, glm::vec3 newColor);
+uint64_t createDefaultTexture();

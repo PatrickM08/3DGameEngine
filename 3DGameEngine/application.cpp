@@ -27,8 +27,10 @@ int run(Application& app) {
     });
     glfwSetKeyCallback(windowPtr, keyCallback);
     initScene(scene);
+
+
     while (!glfwWindowShouldClose(windowPtr)) {
-        auto start = std::chrono::steady_clock::now();
+        //auto start = std::chrono::steady_clock::now();
 
         // Fetch current camera TODO: CHANGE THIS
         if (scene.cameraSet.entityCount == 0) {
@@ -81,11 +83,14 @@ int run(Application& app) {
         renderSystem(scene.visibleEntities, scene.materialSet, scene.meshSet, scene.transformSet, scene.framebuffer);
         renderSkybox(scene.skyboxData);
         drawToFramebuffer(scene.framebuffer, scene.quadVAO);
-        auto end = std::chrono::steady_clock::now();
+        glDisable(GL_DEPTH_TEST);
+        std::string fps = "FPS: " + std::to_string(int(1 / app.deltaTime));
+        renderText(fps.c_str(), 10, 20, 20, 1, scene.window.width, scene.window.height, scene.textRenderData);
+        glEnable(GL_DEPTH_TEST);
+        //auto end = std::chrono::steady_clock::now();
         glfwSwapBuffers(windowPtr);
         deleteSystem(scene);
         std::memcpy(scene.lastKeyStateBuffer, scene.keyStateBuffer, sizeof(scene.keyStateBuffer));
-        std::cout << "all Systems: " << end - start << "\n";
     }
     return 0;
 }

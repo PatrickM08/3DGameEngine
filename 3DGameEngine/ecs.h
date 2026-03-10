@@ -9,6 +9,26 @@
 
 // TODO: ADD DEFAULTS
 
+// TODO: IM NOT SURE I LIKE THIS
+static constexpr int MAX_GLYPHS = 96;
+static constexpr int MAX_TEXT_LENGTH = 30;
+
+struct Glyph {
+    int id, x, y, width, height, xoffset, yoffset, xadvance;
+    float u0, v0;
+    float u1, v1;
+};
+
+struct TextRenderData {
+    Glyph glyphs[MAX_GLYPHS];
+    float vertices[MAX_TEXT_LENGTH * 24];
+    GLuint textShaderID = 0;
+    GLuint textVAO = 0;
+    GLuint textVBO = 0;
+    uint32_t bitmapFontTextureID = 0;
+    uint16_t glyphCount = 0;
+};
+
 struct WindowData {
     uint32_t width;
     uint32_t height;
@@ -44,7 +64,7 @@ struct PhysicsManifoldEntry {
     glm::vec3 collisionNormal;
 };
 
-// TODO: The capacity and size of these can probably be 16 bit - but we can leave it for now
+// TODO: The capacity and size of these can probably be 16 bit - but we can leave it for now - MAKE THESE ONE BUFFER STRUCT?
 struct CollisionPhysicsManifold {
     static constexpr uint32_t capacity = 64;
     uint32_t size = 0;
@@ -55,6 +75,24 @@ struct DeleteBuffer {
     static constexpr uint32_t capacity = 64;
     uint32_t size = 0;
     uint32_t buffer[capacity];
+};
+
+struct MeshBuffer {
+    static constexpr uint8_t capacity = 255;
+    uint8_t size = 0;
+    MeshData buffer[capacity];
+};
+
+struct MaterialBuffer {
+    static constexpr uint8_t capacity = 255;
+    uint8_t size = 0;
+    MaterialData buffer[capacity];
+};
+
+struct MaterialSSBODataBuffer {
+    static constexpr uint8_t capacity = 255;
+    uint8_t size = 0;
+    MaterialSSBOData buffer[capacity];
 };
 
 enum class EventType {
@@ -103,6 +141,7 @@ struct MouseData {
     bool hasBeenRecorded = false;
 };
 
+void initOpenglRenderState();
 GLuint createLightSSBO();
 void performLightCulling(const SparseSet<PointLightComponent>& pointLightEntities,
                          const SparseSet<TransformComponent>& transformSet,
@@ -153,7 +192,11 @@ struct ECS {
     SparseSet<InputMapComponent> inputMapSet;
 
     WindowData window;
-    AssetManager assetManager;
+    MeshBuffer meshBuffer;
+    MaterialBuffer materialBuffer;
+    MaterialSSBODataBuffer materialSSBODataBuffer;
+    uint32_t cubePrimitiveHandle;
+    GLuint materialSSBO;
 
     uint32_t entityCount;
 
@@ -174,6 +217,8 @@ struct ECS {
     float lastKeyStateBuffer[318];
     EventQueue eventQueue;
     MouseData mouseData;
+
+    TextRenderData textRenderData;
 };
 
 void initState(ECS& scene);
@@ -186,3 +231,11 @@ void handleWindowEvent(const Event& event, WindowData& window, Framebuffer& fram
 void createBullet(ECS& scene, glm::vec3 position, glm::quat rotation);
 
 void bulletSystem(ECS& scene);
+
+void parseFont(const char* path, Glyph* glyphs, uint16_t& glyphCount);
+uint32_t loadBitmapFont(const char* path, Glyph* glyphs, uint16_t glyphCount);
+void setupTextBuffers(GLuint& textVAO, GLuint& textVBO);
+GLuint initMaterialSSBO(MaterialSSBODataBuffer& materialSSBODataBuffer);
+void initDefaultMaterials(MaterialBuffer& materialBuffer, MaterialSSBODataBuffer& materialSSBODataBuffer);
+void initMeshes(const char* path, MeshBuffer& meshBuffer);
+void createUnitCubePrimitive(MeshBuffer& meshBuffer);

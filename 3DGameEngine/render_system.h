@@ -12,4 +12,6 @@ void renderSkybox(const SkyboxData& skyboxData);
 void renderSystem(const std::vector<uint32_t>& visibleEntities, const SparseSet<MaterialData>& materialSet,
                  const SparseSet<MeshData>& meshSet, const SparseSet<TransformComponent>& transformSet, const Framebuffer& framebuffer);
 void drawToFramebuffer(const Framebuffer& framebuffer, GLuint quadVAO);
-void initOpenglRenderState();
+void renderText(const char* text, int textLength, const float xPos, const float yPos,
+                const float size, const uint32_t screenWidth,
+                const uint32_t screenHeight, TextRenderData& textRenderData);

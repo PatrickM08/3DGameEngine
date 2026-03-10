@@ -160,81 +160,12 @@ std::vector<float> AssetManager::parseOBJFile(const char* path, uint32_t& vertex
 }
 */
 
-std::vector<MeshData> loadMeshes(const char* path) {
-    std::vector<MeshData> meshes;
-    std::ifstream file(getPath(path));
-    if (!file.is_open()) {
-        throw std::runtime_error("Error opening mesh definition file.");
-    }
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line.empty() || line[0] == '#') {
-            continue;
-        }
-        std::istringstream stream(line);
-        uint32_t meshHandle;
-        std::string objPath;
-        std::string drawUsageString;
-        stream >> meshHandle >> objPath >> drawUsageString;
-        GLenum drawUsage = GL_STATIC_DRAW;
-        if (drawUsageString == "GL_DYNAMIC_DRAW")
-            drawUsage = GL_DYNAMIC_DRAW;
-        else if (drawUsageString == "GL_STREAM_DRAW")
-            drawUsage = GL_STREAM_DRAW;
-        else if (drawUsageString == "GL_STATIC_DRAW")
-            drawUsage = GL_STATIC_DRAW;
-        uint32_t vertexCount = 0;
-        float maxFloat = std::numeric_limits<float>::max();
-        AABB localAABB{maxFloat, maxFloat, maxFloat, -maxFloat, -maxFloat, -maxFloat};
-        std::vector<float> vertices = parseOBJFile(getPath(objPath), vertexCount, localAABB);
-        GLuint VAO, VBO;
-        glGenVertexArrays(1, &VAO);
-        glGenBuffers(1, &VBO);
-        glBindVertexArray(VAO);
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), drawUsage);
-        // The vertex format for static mesh vertex buffers is standardised (vx,vy,vz,nx,ny,nz,tx,ty)
-        size_t vertexAttribStride = 8 * sizeof(float);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, vertexAttribStride, (void*)0);
-        glEnableVertexAttribArray(0);
-        size_t normalsOffset = 3 * sizeof(float);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, vertexAttribStride, (void*)normalsOffset);
-        glEnableVertexAttribArray(1);
-        size_t texCoordsOffset = 6 * sizeof(float);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, vertexAttribStride, (void*)texCoordsOffset);
-        glEnableVertexAttribArray(2);
-        meshes.emplace_back();
-        auto& mesh = meshes.back();
-        mesh.handle = meshHandle;
-        mesh.vao = VAO;
-        mesh.vertexCount = vertexCount;
-        mesh.localAABB = localAABB;
-    }
-    return meshes;
-}
-
-std::vector<MaterialData> loadMaterials() {
-    std::vector<MaterialData> materials;
-    std::vector<MaterialSSBOData> materialSSBOData;
-    uint64_t cubeDiffuse = loadTexture(getPath("container2.png").c_str());
-    uint64_t cubeSpecular = loadTexture(getPath("container2_specular.png").c_str());
-
-    MaterialSSBOData cubeMaterial = {cubeDiffuse, cubeSpecular, 32.0f};
-    MaterialSSBOData noMaterial = {0, 0, 0.0f};
-    materialSSBOData.push_back(cubeMaterial);
-    materialSSBOData.push_back(noMaterial);
-    materials.emplace_back(cubeMaterial, 0, createShaderProgram("cube.vs", "cube.fs"), 0);
-    materials.emplace_back(noMaterial, 0, createShaderProgram("vshader.vs", "fshader.fs"), 1);
-
-    // TODO: THIS SHOULD BE PASSED OUT - THIS WHOLE STRUCTURE IS A MESS WITH THE ASSET MANAGER
-    GLuint materialSSBO;
-    glGenBuffers(1, &materialSSBO);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, materialSSBO);
-
-    glBufferData(GL_SHADER_STORAGE_BUFFER, materialSSBOData.size() * sizeof(MaterialSSBOData), materialSSBOData.data(), GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, materialSSBO);
-
-    return materials;
+void updateMaterialColor(GLuint ssbo, uint32_t index, glm::vec3 newColor) {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER,
+                    index * sizeof(MaterialSSBOData),
+                    sizeof(glm::vec3),
+                    &newColor);
 }
 
 uint64_t loadSkyboxCubemap() {
@@ -250,7 +181,24 @@ uint64_t loadSkyboxCubemap() {
     return loadCubemap(cubemapTexturePaths);
 }
 
-// TODO: ADD A FALL BACK TEXTURE
+uint64_t createDefaultTexture() {
+    GLuint whiteTextureID;
+    glGenTextures(1, &whiteTextureID);
+    glBindTexture(GL_TEXTURE_2D, whiteTextureID);
+
+    uint8_t whitePixel[] = {255, 255, 255, 255};
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, whitePixel);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    uint64_t whiteTextureHandle = glGetTextureHandleARB(whiteTextureID);
+    glMakeTextureHandleResidentARB(whiteTextureHandle);
+
+    return whiteTextureHandle;
+}
+
 uint64_t loadTexture(const char* path) {
     GLuint textureID;
     glGenTextures(1, &textureID);
@@ -366,74 +314,3 @@ MeshData createUnitCubePrimitive(std::vector<MeshData>& meshes) {
 }
 */
 
-MeshData createUnitCubePrimitive(std::vector<MeshData>& meshes) {
-    float xOffset = 0.5f;
-    float yOffset = 0.5f;
-    float zOffset = 0.5f;
-
-    float vertices[] = {
-        -xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-        xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,
-        xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
-        -xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-        xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
-        -xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
-
-        xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
-        -xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,
-        -xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
-        xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
-        -xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
-        xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,
-
-        -xOffset, -yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        -xOffset, -yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-        -xOffset, yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-        -xOffset, -yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        -xOffset, yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-        -xOffset, yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-
-        xOffset, -yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        xOffset, -yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-        xOffset, yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-        xOffset, -yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        xOffset, yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-        xOffset, yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-
-        -xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-        xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-        xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-        -xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-        xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-        -xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-
-        -xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-        xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-        xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
-        -xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-        xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
-        -xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f};
-
-    GLuint VAO, VBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    GLsizei stride = 8 * sizeof(float);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    uint32_t numberOfMeshes = static_cast<uint32_t>(meshes.size());
-    meshes.emplace_back(numberOfMeshes, VAO, 36, AABB{-xOffset, -yOffset, -zOffset, xOffset, yOffset, zOffset});
-    return meshes.back();
-}

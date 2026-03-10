@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "ecs.h"
 #include <glad/glad.h>
 #include <glm/glm.hpp>
@@ -8,12 +9,14 @@
 #include "camera.h"
 #include "window.h"
 #include "asset_manager.h"
+#include "stb_image.h"
+#include <cstdio>
 
 uint32_t createCube(ECS& scene, glm::vec3 pos, glm::vec3 scale, uint32_t meshID, uint32_t materialID) {
     uint32_t id = ++scene.entityCount; // Automate this!
 
-    scene.meshSet.add(id, scene.assetManager.meshes[meshID]);
-    scene.materialSet.add(id, scene.assetManager.materials[materialID]);
+    scene.meshSet.add(id, scene.meshBuffer.buffer[meshID]);
+    scene.materialSet.add(id, scene.materialBuffer.buffer[materialID]);
     scene.renderableSet.add(id, RenderableTag{});
     scene.velocitySet.add(id, VelocityComponent{glm::vec3(0.0f)});
     scene.transformSet.add(id, TransformComponent{.position = pos, .scale = scale});
@@ -32,8 +35,12 @@ void initState(ECS& scene) {
     scene.window.height = 1200;
     scene.window.title = "PROTOPLAY";
     scene.window.windowPtr = createWindow(scene.window.width, scene.window.height, scene.window.title);
-    scene.assetManager.materials = loadMaterials();
-    scene.assetManager.meshes = loadMeshes("meshes.txt");
+    initOpenglRenderState();
+    initDefaultMaterials(scene.materialBuffer, scene.materialSSBODataBuffer);
+    scene.materialSSBO = initMaterialSSBO(scene.materialSSBODataBuffer);
+    initMeshes("meshes.txt", scene.meshBuffer);
+    createUnitCubePrimitive(scene.meshBuffer);
+    scene.cubePrimitiveHandle = scene.meshBuffer.size - 1;
     scene.framebuffer = createFrameBuffer(createShaderProgram("fb_vertex_shader.vs", "fb_fragment_shader.fs"), scene.window.width, scene.window.height);
     scene.quadVAO = createQuad();
     scene.visibleEntities.reserve(20000); // The maximum number of entities that can be rendered per pass.
@@ -41,15 +48,20 @@ void initState(ECS& scene) {
     scene.lightSSBO = createLightSSBO();
     scene.skyboxData.cubemapHandle = loadSkyboxCubemap();
     scene.skyboxData.shaderID = createShaderProgram("skybox.vs", "skybox.fs");
-    scene.skyboxData.meshVAO = scene.assetManager.meshes[2].vao; // TODO: CHANGE
+    scene.skyboxData.meshVAO = scene.meshBuffer.buffer[2].vao; // TODO: CHANGE
     scene.sceneUBO = createSceneUBO();
     std::memset(scene.keyStateBuffer, 0, sizeof(scene.keyStateBuffer));
     std::memset(scene.lastKeyStateBuffer, 0, sizeof(scene.lastKeyStateBuffer));
+    TextRenderData& textRenderData = scene.textRenderData;
+    setupTextBuffers(textRenderData.textVAO, textRenderData.textVBO);
+    textRenderData.textShaderID = createShaderProgram("text_vertex_shader.vs", "text_fragment_shader.fs");
+    parseFont("ariallatin.fnt", textRenderData.glyphs, textRenderData.glyphCount);
+    textRenderData.bitmapFontTextureID = loadBitmapFont("ariallatin_0.png", textRenderData.glyphs, textRenderData.glyphCount);
 }
 
 void initScene(ECS& scene) {
 
-    scene.meshSet.add(scene.entityCount, scene.assetManager.meshes[1]);
+    scene.meshSet.add(scene.entityCount, scene.meshBuffer.buffer[1]);
     scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(0.0f, 15.0f, 10.0f)});
 
     CameraComponent camera{
@@ -64,13 +76,15 @@ void initScene(ECS& scene) {
     scene.cameraSet.add(scene.entityCount, camera);
 
     ++scene.entityCount;
-    scene.meshSet.add(scene.entityCount, scene.assetManager.meshes[0]);
-    scene.materialSet.add(scene.entityCount, scene.assetManager.materials[1]);
+    scene.meshSet.add(scene.entityCount, scene.meshBuffer.buffer[0]);
+    scene.materialSet.add(scene.entityCount, scene.materialBuffer.buffer[1]);
     scene.renderableSet.add(scene.entityCount, RenderableTag{});
     scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(-50, 0, 50)});
 
-    const uint32_t CUBE = createUnitCubePrimitive(scene.assetManager.meshes).handle;
+    const uint32_t CUBE = scene.cubePrimitiveHandle;
     const uint32_t MAT = 0;
+
+    updateMaterialColor(scene.materialSSBO, 0, glm::vec3(1.0f, 0.0f, 0.0f));
 
     uint32_t p1 = createCube(scene, {-5.0f, 0.5f, -2.0f}, {1, 1, 1}, CUBE, MAT);
     scene.speedSet.add(p1, {5.0f});
@@ -362,10 +376,11 @@ void bulletSystem(ECS& scene) {
     }
 }
 
+// TODO: NEED TO MAKE THIS BETTER
 void createBullet(ECS& scene, glm::vec3 position, glm::quat rotation) {
     ++scene.entityCount;
-    scene.meshSet.add(scene.entityCount, createUnitCubePrimitive(scene.assetManager.meshes));
-    scene.materialSet.add(scene.entityCount, scene.assetManager.materials[0]);
+    scene.meshSet.add(scene.entityCount, scene.meshBuffer.buffer[scene.cubePrimitiveHandle]);
+    scene.materialSet.add(scene.entityCount, scene.materialBuffer.buffer[0]);
     scene.renderableSet.add(scene.entityCount, RenderableTag{});
     glm::vec3 front = rotation * glm::vec3(0.0f, 0.0f, -1.0f);
     float bulletOffset = 1.0f;
@@ -394,3 +409,255 @@ struct Entity {
     }
 };
 */
+
+void parseFont(const char* path, Glyph* glyphs, uint16_t& glyphCount) {
+    FILE* file = fopen(path, "rb");
+    if (!file) { // TODO: MAKE THIS MORE ROBUST AND LOOK INTO STD::FROM_CHARS FOR BELOW
+        std::cout << "FAILED TO LOAD FNT FILE." << std::endl;
+    }
+    char buffer[256];
+
+    while (std::fgets(buffer, sizeof(buffer), file)) {
+        if (std::strncmp(buffer, "char", 4) == 0 && glyphCount < MAX_GLYPHS) {
+            Glyph g;
+            int result = sscanf(buffer,
+                                "char id=%d x=%d y=%d width=%d height=%d "
+                                "xoffset=%d yoffset=%d xadvance=%d",
+                                &g.id, &g.x, &g.y, &g.width, &g.height,
+                                &g.xoffset, &g.yoffset, &g.xadvance);
+            int index = g.id - 32;
+            if (index >= 0 && index < MAX_GLYPHS) {
+                glyphs[index] = g;
+            }
+            ++glyphCount;
+        }
+    }
+    std::fclose(file);
+}
+
+uint32_t loadBitmapFont(const char* path, Glyph* glyphs, uint16_t glyphCount) {
+    uint32_t textureID;
+    glGenTextures(1, &textureID);
+
+    int width, height, nrComponents;
+    unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
+    if (data) {
+        GLenum format = GL_RED;
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format,
+                     GL_UNSIGNED_BYTE, data);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        for (int i = 0; i < glyphCount; ++i) { // this is under the assumption our glyph buffer is full from the beginning. TODO: NEEDS TO BE CHANGED
+            Glyph& glyph = glyphs[i];
+            glyph.u0 = (float)glyph.x / width;
+            glyph.v0 = (float)glyph.y / height;
+
+            glyph.u1 = (float)(glyph.x + glyph.width) / width;
+            glyph.v1 = (float)(glyph.y + glyph.height) / height;
+        }
+
+        stbi_image_free(data);
+    } else {
+        std::cout << "Texture failed to load at path: " << path << std::endl;
+        stbi_image_free(data);
+    }
+
+    return textureID;
+}
+
+void setupTextBuffers(GLuint& textVAO, GLuint& textVBO) {
+    glGenVertexArrays(1, &textVAO);
+    glGenBuffers(1, &textVBO);
+
+    glBindVertexArray(textVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+    glBufferData(GL_ARRAY_BUFFER, MAX_TEXT_LENGTH * 24 * sizeof(float), nullptr,
+                 GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                          (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                          (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+}
+
+void initOpenglRenderState() {
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_CULL_FACE);
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+}
+
+void initDefaultMaterials(MaterialBuffer& materialBuffer, MaterialSSBODataBuffer& materialSSBODataBuffer) {
+    uint64_t defualtTexture = createDefaultTexture();
+    uint64_t cubeDiffuse = loadTexture(getPath("container2.png").c_str());
+    uint64_t cubeSpecular = loadTexture(getPath("container2_specular.png").c_str());
+
+    uint32_t defualtShaderID = createShaderProgram("default_vertex.vs", "default_fragment.fs");
+
+    MaterialSSBOData cubeMaterial = {glm::vec4(1.0f, 1.0f, 1.0f, 32.0f), cubeDiffuse, cubeSpecular};
+    MaterialSSBOData noMaterial = {glm::vec4(0.2f, 0.2f, 0.2f, 0.0f), defualtTexture, defualtTexture};
+    materialSSBODataBuffer.buffer[materialSSBODataBuffer.size++] = cubeMaterial; // Index 0 
+    materialSSBODataBuffer.buffer[materialSSBODataBuffer.size++] = noMaterial;   // Index 1 - need to find a better way to do this. 
+    materialBuffer.buffer[materialBuffer.size++] = MaterialData{cubeMaterial, 0, defualtShaderID, 0};
+    materialBuffer.buffer[materialBuffer.size++] = MaterialData{noMaterial, 0, defualtShaderID, 1};
+}
+
+GLuint initMaterialSSBO(MaterialSSBODataBuffer& materialSSBODataBuffer) {
+    GLuint materialSSBO;
+    glGenBuffers(1, &materialSSBO);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, materialSSBO);
+    // MAYBE SHOULD BE STATIC - DEPENDS HOW OFTEN THE MATERIALS ARE CHANGED.
+    glBufferData(GL_SHADER_STORAGE_BUFFER, materialSSBODataBuffer.capacity * sizeof(MaterialSSBOData), materialSSBODataBuffer.buffer, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, materialSSBO);
+    return materialSSBO;
+}
+
+void initMeshes(const char* path, MeshBuffer& meshBuffer) {
+    std::ifstream file(getPath(path));
+    if (!file.is_open()) {
+        throw std::runtime_error("Error opening mesh definition file.");
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+
+        if (meshBuffer.size >= meshBuffer.capacity) {
+            std::cout << "Mesh Buffer Full." << std::endl;
+            break;
+        }
+
+        std::istringstream stream(line);
+        uint32_t meshHandle;
+        std::string objPath;
+        std::string drawUsageString;
+        stream >> meshHandle >> objPath >> drawUsageString;
+
+        GLenum drawUsage = GL_STATIC_DRAW;
+        if (drawUsageString == "GL_DYNAMIC_DRAW") drawUsage = GL_DYNAMIC_DRAW;
+        else if (drawUsageString == "GL_STREAM_DRAW") drawUsage = GL_STREAM_DRAW;
+
+        uint32_t vertexCount = 0;
+        float maxFloat = std::numeric_limits<float>::max();
+        AABB localAABB{maxFloat, maxFloat, maxFloat, -maxFloat, -maxFloat, -maxFloat};
+
+        std::vector<float> vertices = parseOBJFile(getPath(objPath), vertexCount, localAABB);
+
+        GLuint VAO, VBO;
+        glGenVertexArrays(1, &VAO);
+        glGenBuffers(1, &VBO);
+
+        glBindVertexArray(VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), drawUsage);
+
+        size_t stride = 8 * sizeof(float);
+        // Position
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+        glEnableVertexAttribArray(0);
+        // Normals
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+        // TexCoords
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+
+        MeshData& mesh = meshBuffer.buffer[meshBuffer.size++];
+        mesh.handle = meshHandle;
+        mesh.vao = VAO;
+        mesh.vertexCount = vertexCount;
+        mesh.localAABB = localAABB;
+    }
+}
+
+
+void createUnitCubePrimitive(MeshBuffer& meshBuffer) {
+    if (meshBuffer.size >= meshBuffer.capacity) {
+        std::cout << "Cannot create Cube primitive. MeshBuffer is full." << std::endl;
+        return;
+    }
+
+    float xOffset = 0.5f;
+    float yOffset = 0.5f;
+    float zOffset = 0.5f;
+
+    float vertices[] = {
+        -xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,
+        xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+        -xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+        -xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+
+        xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+        -xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,
+        -xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
+        xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+        -xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
+        xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,
+
+        -xOffset, -yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        -xOffset, -yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+        -xOffset, yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, -yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        -xOffset, yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+
+        xOffset, -yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, -yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+        xOffset, yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        xOffset, -yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        xOffset, yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+
+        -xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+        xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+
+        -xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f};
+
+    GLuint VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    GLsizei stride = 8 * sizeof(float);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+
+    glBindVertexArray(0);
+
+    uint32_t handle = static_cast<uint32_t>(meshBuffer.size);
+
+    MeshData& mesh = meshBuffer.buffer[meshBuffer.size++];
+    mesh.handle = handle;
+    mesh.vao = VAO;
+    mesh.vertexCount = 36;
+    mesh.localAABB = AABB{-xOffset, -yOffset, -zOffset, xOffset, yOffset, zOffset};
+}

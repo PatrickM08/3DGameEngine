@@ -1,10 +1,10 @@
-#version 330 core
+#version 430 core
 layout (location = 0) in vec2 aPos;
 layout (location = 2) in vec2 aTexCoords;
 
-uniform vec2 screenPosition;
-uniform float scale;
-uniform vec2 screenSize;
+layout(location = 0) uniform vec2 screenPosition;
+layout(location = 1) uniform float scale;
+layout(location = 2) uniform vec2 screenSize;
 
 out vec2 TexCoords;
 

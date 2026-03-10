@@ -155,7 +155,7 @@
     <ClInclude Include="render_system.h" />
     <ClInclude Include="shader_s.h" />
     <ClInclude Include="sparse_set.h" />
-    <ClInclude Include="text.hpp" />
+    <ClInclude Include="text.h" />
     <ClInclude Include="tiny_obj_loader.h" />
     <ClInclude Include="window.h" />
   </ItemGroup>
@@ -165,8 +165,8 @@
     <None Include="fb_fragment_shader.fs" />
     <None Include="fb_vertex_shader.vs" />
     <None Include="fshader.fs" />
-    <None Include="cube.fs" />
-    <None Include="cube.vs" />
+    <None Include="default_fragment.fs" />
+    <None Include="default_vertex.vs" />
     <None Include="skybox.fs" />
     <None Include="skybox.vs" />
     <None Include="text_fragment_shader.fs" />
