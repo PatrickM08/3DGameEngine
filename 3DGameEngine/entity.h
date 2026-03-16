@@ -28,10 +28,6 @@ struct TransformComponent {
     glm::vec3 scale = glm::vec3(1, 1, 1);
 };
 
-struct InstancedComponent {
-    uint32_t numberOfInstances = 0;
-};
-
 struct VelocityComponent {
     glm::vec3 velocity;
 };
@@ -68,6 +64,10 @@ struct InputMapComponent {
     uint16_t shootIndex;
 };
 
+struct NameComponent {
+    char name[64];
+};
+
 struct RenderableTag {};
 
 struct PlayerInputWorldTag {};
@@ -75,8 +75,6 @@ struct PlayerInputWorldTag {};
 struct PlayerInputTankTag {};
 
 struct PlayerInputNoClipTag {};
-
-struct SkyboxTag {};
 
 struct BulletTag {};
 

@@ -1,7 +1,7 @@
 #include "movement_system.h"
-#include <glm/gtc/quaternion.hpp>
+#include "entity.h"
+#include "camera.h"
 #include <glm/gtc/matrix_transform.hpp>
-
 
 void worldSpaceInputSystem(const SparseSet<PlayerInputWorldTag>& inputWorldSet, SparseSet<VelocityComponent>& velocitySet,
 						   const SparseSet<SpeedComponent>& speedSet, const SparseSet<InputMapComponent>& inputMapSet, float* keyStateBuffer) {
@@ -14,7 +14,7 @@ void worldSpaceInputSystem(const SparseSet<PlayerInputWorldTag>& inputWorldSet, 
             static_cast<float>(keyStateBuffer[inputMap.backIndex] - keyStateBuffer[inputMap.forwardIndex]));
         float squaredLength = glm::dot(direction, direction);
         float deadzone = 0.0001;
-        if (squaredLength > 0.0001)
+        if (squaredLength > deadzone)
 			// TODO: LOOK INTO X86 INVERSE SQUARE ROOT INSTRUCTIONS
 			velocitySet.getComponent(entity).velocity = (direction/glm::sqrt(squaredLength)) * speedSet.getComponent(entity).speed;
         else {
@@ -92,12 +92,5 @@ void movementSystem(const SparseSet<VelocityComponent>& velocitySet, SparseSet<T
 		auto& velocity = velocitySet.getComponent(entity);
 
 		transform.position += velocity.velocity * deltaTime;
-
-		// TODO: CHANGE THIS
-		if (cameraSet.hasComponent(entity)) {
-			CameraComponent& camera = cameraSet.getComponent(entity);
-			updateCameraPosition(camera, transform.position);
-			updateViewMatrix(camera);
-		}
 	}
 }

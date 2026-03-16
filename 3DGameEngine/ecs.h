@@ -1,180 +1,22 @@
 #pragma once
+#include <cstdint>
+#include <glm/glm.hpp>
+#include "sparse_set.h"
+#include "entity.h"
 #include "asset_manager.h"
 #include "camera.h"
-#include "entity.h"
-#include "sparse_set.h"
-#include <cstdint>
-#include <cstring>
-#include <glm/glm.hpp>
-
-// TODO: ADD DEFAULTS
-
-// TODO: IM NOT SURE I LIKE THIS
-static constexpr int MAX_GLYPHS = 96;
-static constexpr int MAX_TEXT_LENGTH = 30;
-
-struct Glyph {
-    int id, x, y, width, height, xoffset, yoffset, xadvance;
-    float u0, v0;
-    float u1, v1;
-};
-
-struct TextRenderData {
-    Glyph glyphs[MAX_GLYPHS];
-    float vertices[MAX_TEXT_LENGTH * 24];
-    GLuint textShaderID = 0;
-    GLuint textVAO = 0;
-    GLuint textVBO = 0;
-    uint32_t bitmapFontTextureID = 0;
-    uint16_t glyphCount = 0;
-};
-
-struct WindowData {
-    uint32_t width;
-    uint32_t height;
-    const char* title; // TODO: THIS MIGHT BE BETTER AS A BUFFER CHECK LATER.
-    GLFWwindow* windowPtr;
-};
-
-struct Framebuffer {
-    GLuint buffer;
-    GLuint textureAttachment;
-    GLuint renderBufferObject;
-    uint32_t width, height;
-    uint32_t shaderID;
-};
-
-struct SceneUBOData {
-    glm::mat4 viewMatrix;
-    glm::mat4 projectionMatrix;
-    glm::vec3 cameraPosition;
-    uint32_t pointLightCount;
-    uint64_t skyboxCubemapHandle;
-};
-
-struct SkyboxData {
-    uint64_t cubemapHandle;
-    uint32_t shaderID;
-    uint32_t meshVAO;
-};
-
-struct PhysicsManifoldEntry {
-    uint32_t entityID;
-    float depth;
-    glm::vec3 collisionNormal;
-};
-
-// TODO: The capacity and size of these can probably be 16 bit - but we can leave it for now - MAKE THESE ONE BUFFER STRUCT?
-struct CollisionPhysicsManifold {
-    static constexpr uint32_t capacity = 64;
-    uint32_t size = 0;
-    PhysicsManifoldEntry buffer[capacity];
-};
-
-struct DeleteBuffer {
-    static constexpr uint32_t capacity = 64;
-    uint32_t size = 0;
-    uint32_t buffer[capacity];
-};
-
-struct MeshBuffer {
-    static constexpr uint8_t capacity = 255;
-    uint8_t size = 0;
-    MeshData buffer[capacity];
-};
-
-struct MaterialBuffer {
-    static constexpr uint8_t capacity = 255;
-    uint8_t size = 0;
-    MaterialData buffer[capacity];
-};
-
-struct MaterialSSBODataBuffer {
-    static constexpr uint8_t capacity = 255;
-    uint8_t size = 0;
-    MaterialSSBOData buffer[capacity];
-};
-
-enum class EventType {
-    WindowResize,
-    MouseMove,
-    Scroll
-};
-
-struct Event {
-    EventType type;
-    union {
-        struct {
-            int width, height;
-        } resize;
-        struct {
-            float xPos, yPos;
-        } mouseMove;
-        struct {
-            float yOffset;
-        } scroll;
-    };
-};
-
-// TODO: NEED TO FIND HOW MUCH SPACE I ACTUALLY NEED FOR THIS.
-
-struct EventQueue {
-    Event ringBuffer[128];
-    uint8_t front = 0;
-    uint8_t back = 0;
-};
-
-bool eventQueueEmpty(EventQueue& queue);
-
-// There is one index always left empty between the back and the front to distinguish between an empty queue and a full queue.
-void pushEvent(EventQueue& queue, const Event& event);
-
-Event popEvent(EventQueue& queue);
-
-bool pollEvent(EventQueue& eventQueue, Event& event);
-
-struct MouseData {
-    float lastCursorX = 0.0f;
-    float lastCursorY = 0.0f;
-    float frameOffsetX = 0.0f;
-    float frameOffsetY = 0.0f;
-    bool hasBeenRecorded = false;
-};
-
-void initOpenglRenderState();
-GLuint createLightSSBO();
-void performLightCulling(const SparseSet<PointLightComponent>& pointLightEntities,
-                         const SparseSet<TransformComponent>& transformSet,
-                         std::vector<PackedLightData>& visiblePointLights,
-                         const glm::vec4* frustumPlanes);
-void uploadLightSSBO(const GLuint lightSSBO, const std::vector<PackedLightData>& visiblePointLights);
-
-GLuint createSceneUBO();
-void updateSceneData(SceneUBOData& sceneData, const CameraComponent& camera, 
-                    const std::vector<PackedLightData>& visiblePointLights, const SkyboxData& skyboxData);
-void uploadSceneUBO(const GLuint sceneUBO, const SceneUBOData sceneData);
-
-void performFrustumCulling(const SparseSet<RenderableTag>& renderableEntities,
-                           const SparseSet<TransformComponent>& transformSet,
-                           const SparseSet<MeshData>& meshSet,
-                           std::vector<uint32_t>& visibleEntities,
-                           const glm::vec4* frustumPlanes);
-
-Framebuffer createFrameBuffer(const uint32_t frambufferShaderID, const uint32_t width, const uint32_t height);
-GLuint createQuad();
+#include "collision_system.h"
+#include "window.h"
+#include "events.h"
+#include "text.h"
+#include "render_system.h"
 
 struct ECS {
-    // Currently there are no paged sparse sets as there are no sparse
-    // components that are spaced far apart. i.e. greater than one entity has a
-    // component and these entities differ largely in entity count.
-    // 
-    // TODO: NEED TO RESERVE MEMORY ONCE WE GET DYNAMIC ENTITY CREATION - THIS SHOULD BE AN ARENA FOR ALL COMPONENTS
-    // TODO: SPARSE SETS SHOULD BE MADE CLEANER
+    float deltaTime, lastFrame;
+
     SparseSet<TransformComponent> transformSet;
     SparseSet<MeshData> meshSet;
     SparseSet<MaterialData> materialSet;
-    SparseSet<SkyboxTag> skyboxSet;
-    SparseSet<InstancedComponent> instancedSet;
     SparseSet<PlayerInputWorldTag> inputWorldSet;
     SparseSet<PlayerInputTankTag> inputTankSet;
     SparseSet<PlayerInputNoClipTag> inputNoClipSet;
@@ -190,24 +32,26 @@ struct ECS {
     SparseSet<DynamicTag> dynamicSet;
     SparseSet<HealthComponent> healthSet;
     SparseSet<InputMapComponent> inputMapSet;
+    SparseSet<NameComponent> nameSet;
 
     WindowData window;
+    
     MeshBuffer meshBuffer;
+    uint32_t cubePrimitiveIndex;
     MaterialBuffer materialBuffer;
     MaterialSSBODataBuffer materialSSBODataBuffer;
-    uint32_t cubePrimitiveHandle;
-    GLuint materialSSBO;
+    uint32_t materialSSBO;
 
     uint32_t entityCount;
 
     Framebuffer framebuffer;
-    GLuint quadVAO;
+    uint32_t quadVAO;
     
-    std::vector<uint32_t> visibleEntities;
-    std::vector<PackedLightData> visiblePointLights;
-    GLuint lightSSBO;
+    VisibleEntityBuffer visibleEntityBuffer;
+    VisiblePointLightBuffer visiblePointLightBuffer;
+    uint32_t lightSSBO;
     SkyboxData skyboxData;
-    GLuint sceneUBO;
+    uint32_t sceneUBO;
     SceneUBOData sceneData;
 
     CollisionPhysicsManifold physicsManifold;
@@ -218,24 +62,27 @@ struct ECS {
     EventQueue eventQueue;
     MouseData mouseData;
 
+    TextBuffer textBuffer;
     TextRenderData textRenderData;
+
+    uint32_t currentCamera;
+
+    bool debugMode = true;
+    int lastPressedGLFWKey = -1;
+    int awaitingBind = -1;
+    int selectedEntity = -1;
+    glm::vec3 pendingDirection = glm::vec3(0.0f, 0.0f, 1.0f);
+    float pendingMagnitude = 5.0f;
+    char fileNameBuffer[64] = "scene.bin";
 };
 
 void initState(ECS& scene);
 
 void initScene(ECS& scene);
-
-void handleWindowEvent(const Event& event, WindowData& window, Framebuffer& framebuffer, CameraComponent& camera,
-                       MouseData& mouseData);
+void updateScene(ECS& scene, CameraComponent& camera);
 
 void createBullet(ECS& scene, glm::vec3 position, glm::quat rotation);
 
 void bulletSystem(ECS& scene);
 
-void parseFont(const char* path, Glyph* glyphs, uint16_t& glyphCount);
-uint32_t loadBitmapFont(const char* path, Glyph* glyphs, uint16_t glyphCount);
-void setupTextBuffers(GLuint& textVAO, GLuint& textVBO);
-GLuint initMaterialSSBO(MaterialSSBODataBuffer& materialSSBODataBuffer);
-void initDefaultMaterials(MaterialBuffer& materialBuffer, MaterialSSBODataBuffer& materialSSBODataBuffer);
-void initMeshes(const char* path, MeshBuffer& meshBuffer);
-void createUnitCubePrimitive(MeshBuffer& meshBuffer);
+void updateTiming(ECS& scene);

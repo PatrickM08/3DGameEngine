@@ -1,6 +1,17 @@
 #pragma once
-#include "ecs.h"
-#include "entity.h"
+#include <glm/glm.hpp>
+#include "sparse_set.h"
+
+struct TransformComponent;
+struct VelocityComponent;
+struct SpeedComponent;
+struct RotationSpeedComponent;
+struct PlayerInputTankTag;
+struct PlayerInputWorldTag;
+struct PlayerInputNoClipTag;
+struct InputMapComponent;
+struct PatrolComponent;
+struct CameraComponent;
 
 struct InputDirection {
 	glm::vec3 direction;

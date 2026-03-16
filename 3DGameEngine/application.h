@@ -1,11 +1,7 @@
 #pragma once
-#include "ecs.h"
 
-struct Application {
-    float deltaTime, lastFrame;
-    ECS* scene = new ECS();
-};
+struct ECS;
+struct GLFWwindow;
 
-void updateTiming(Application& app);
-int run(Application& app);
+int run(ECS& scene);
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);

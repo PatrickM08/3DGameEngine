@@ -1,9 +1,6 @@
 #include "camera.h"
-#include <iostream>
-
-void updateCameraPosition(CameraComponent& camera, glm::vec3 pos) {
-    camera.position = pos + camera.positionOffset;
-}
+#include "entity.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 void updateCameraVectors(CameraComponent& camera) {
     glm::vec3 front;
@@ -85,5 +82,14 @@ void updateFrustumPlanes(CameraComponent& camera) {
         glm::vec4& plane = camera.frustumPlanes[i];
         float invLength = 1.0f / sqrt(plane.x * plane.x + plane.y * plane.y + plane.z * plane.z);
         plane *= invLength;
+    }
+}
+
+void updateCameraPosition(SparseSet<TransformComponent>& transformSet, SparseSet<CameraComponent>& cameraSet) {
+    for (int i = 0; i < cameraSet.entityCount; ++i) {
+        uint32_t entity = cameraSet.entities[i];
+        CameraComponent& camera = cameraSet.getComponent(entity);
+        TransformComponent& transform = transformSet.getComponent(entity);
+        camera.position = transform.position + camera.positionOffset;
     }
 }

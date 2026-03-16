@@ -1,4 +1,6 @@
 #include "collision_system.h"
+#include "ecs.h"
+#include "entity.h"
 #include <algorithm>
 
 void collisionSystem(SparseSet<CollisionComponent>& collisionSet, SparseSet<TransformComponent>& transformSet,
@@ -142,20 +144,6 @@ void deleteSystem(ECS& scene) {
     last = UINT32_MAX;
     for (uint32_t i = 0; i < size; ++i) {
         if (deleteBuffer[i] == last) continue;
-        scene.skyboxSet.remove(deleteBuffer[i]);
-        last = deleteBuffer[i];
-    }
-
-    last = UINT32_MAX;
-    for (uint32_t i = 0; i < size; ++i) {
-        if (deleteBuffer[i] == last) continue;
-        scene.instancedSet.remove(deleteBuffer[i]);
-        last = deleteBuffer[i];
-    }
-
-    last = UINT32_MAX;
-    for (uint32_t i = 0; i < size; ++i) {
-        if (deleteBuffer[i] == last) continue;
         scene.inputWorldSet.remove(deleteBuffer[i]);
         last = deleteBuffer[i];
     }
@@ -255,6 +243,13 @@ void deleteSystem(ECS& scene) {
     for (uint32_t i = 0; i < size; ++i) {
         if (deleteBuffer[i] == last) continue;
         scene.inputMapSet.remove(deleteBuffer[i]);
+        last = deleteBuffer[i];
+    }
+
+    last = UINT32_MAX;
+    for (uint32_t i = 0; i < size; ++i) {
+        if (deleteBuffer[i] == last) continue;
+        scene.nameSet.remove(deleteBuffer[i]);
         last = deleteBuffer[i];
     }
 }

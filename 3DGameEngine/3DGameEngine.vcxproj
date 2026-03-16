@@ -137,8 +137,17 @@
     <ClCompile Include="camera.cpp" />
     <ClCompile Include="collision_system.cpp" />
     <ClCompile Include="ecs.cpp" />
+    <ClCompile Include="editor.cpp" />
+    <ClCompile Include="events.cpp" />
+    <ClCompile Include="imgui.cpp" />
+    <ClCompile Include="imgui_draw.cpp" />
+    <ClCompile Include="imgui_impl_glfw.cpp" />
+    <ClCompile Include="imgui_impl_opengl3.cpp" />
+    <ClCompile Include="imgui_tables.cpp" />
+    <ClCompile Include="imgui_widgets.cpp" />
     <ClCompile Include="movement_system.cpp" />
     <ClCompile Include="render_system.cpp" />
+    <ClCompile Include="serialization.cpp" />
     <ClCompile Include="stb_setup.cpp" />
     <ClCompile Include="text.cpp" />
     <ClCompile Include="tiny_obj_loader_implementation.cpp" />
@@ -150,9 +159,21 @@
     <ClInclude Include="camera.h" />
     <ClInclude Include="collision_system.h" />
     <ClInclude Include="ecs.h" />
+    <ClInclude Include="editor.h" />
     <ClInclude Include="entity.h" />
+    <ClInclude Include="events.h" />
+    <ClInclude Include="imconfig.h" />
+    <ClInclude Include="imgui.h" />
+    <ClInclude Include="imgui_impl_glfw.h" />
+    <ClInclude Include="imgui_impl_opengl3.h" />
+    <ClInclude Include="imgui_impl_opengl3_loader.h" />
+    <ClInclude Include="imgui_internal.h" />
+    <ClInclude Include="imstb_rectpack.h" />
+    <ClInclude Include="imstb_textedit.h" />
+    <ClInclude Include="imstb_truetype.h" />
     <ClInclude Include="movement_system.h" />
     <ClInclude Include="render_system.h" />
+    <ClInclude Include="serialization.h" />
     <ClInclude Include="shader_s.h" />
     <ClInclude Include="sparse_set.h" />
     <ClInclude Include="text.h" />
@@ -164,14 +185,12 @@
     <None Include="ariallatin.fnt" />
     <None Include="fb_fragment_shader.fs" />
     <None Include="fb_vertex_shader.vs" />
-    <None Include="fshader.fs" />
     <None Include="default_fragment.fs" />
     <None Include="default_vertex.vs" />
     <None Include="skybox.fs" />
     <None Include="skybox.vs" />
     <None Include="text_fragment_shader.fs" />
     <None Include="text_vertex_shader.vs" />
-    <None Include="vshader.vs" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="ariallatin_0.png" />

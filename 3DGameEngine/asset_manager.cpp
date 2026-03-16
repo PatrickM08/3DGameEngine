@@ -1,16 +1,11 @@
 #include "asset_manager.h"
-#include <fstream>
-#include <string>
-#include <sstream>
-#include <algorithm>
-#include <vector>
-#include <limits>
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include "stb_image.h"
-#include <iostream>
 #include "tiny_obj_loader.h"
+#include <fstream>
+#include <sstream>
+#include <iostream>
 #include <bit>
+#include "shader_s.h"
 
 // TODO: VERY VERY BAD - FIGURE THIS OUT
 std::string getPath(const std::string& relativePath) {
@@ -160,12 +155,15 @@ std::vector<float> AssetManager::parseOBJFile(const char* path, uint32_t& vertex
 }
 */
 
-void updateMaterialColor(GLuint ssbo, uint32_t index, glm::vec3 newColor) {
+void updateMaterialColour(MaterialData& materialData, MaterialSSBOData& materialSSBOData, glm::vec3 newColor, uint32_t ssbo) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
     glBufferSubData(GL_SHADER_STORAGE_BUFFER,
-                    index * sizeof(MaterialSSBOData),
+                    materialData.materialSSBOIndex * sizeof(MaterialSSBOData),
                     sizeof(glm::vec3),
                     &newColor);
+    materialSSBOData.colourAndShine.x = newColor.x;
+    materialSSBOData.colourAndShine.y = newColor.y;
+    materialSSBOData.colourAndShine.z = newColor.z;
 }
 
 uint64_t loadSkyboxCubemap() {
@@ -182,7 +180,7 @@ uint64_t loadSkyboxCubemap() {
 }
 
 uint64_t createDefaultTexture() {
-    GLuint whiteTextureID;
+    uint32_t whiteTextureID;
     glGenTextures(1, &whiteTextureID);
     glBindTexture(GL_TEXTURE_2D, whiteTextureID);
 
@@ -200,7 +198,7 @@ uint64_t createDefaultTexture() {
 }
 
 uint64_t loadTexture(const char* path) {
-    GLuint textureID;
+    uint32_t textureID;
     glGenTextures(1, &textureID);
 
     int width, height, nrComponents;
@@ -208,7 +206,7 @@ uint64_t loadTexture(const char* path) {
     if (data) {
         glBindTexture(GL_TEXTURE_2D, textureID);
         int mipMapLevel = std::bit_width((uint32_t)std::max(width, height));
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, width, height);
+        glTexStorage2D(GL_TEXTURE_2D, mipMapLevel, GL_RGBA8, width, height);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -229,7 +227,7 @@ uint64_t loadTexture(const char* path) {
 }
 
 uint64_t loadCubemap(const char* (&faces)[6]) {
-    GLuint textureID;
+    uint32_t textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
     int width, height, nrComponents;
@@ -314,3 +312,165 @@ MeshData createUnitCubePrimitive(std::vector<MeshData>& meshes) {
 }
 */
 
+void initDefaultMaterials(MaterialBuffer& materialBuffer, MaterialSSBODataBuffer& materialSSBODataBuffer) {
+    uint64_t defualtTexture = createDefaultTexture();
+    uint64_t cubeDiffuse = loadTexture(getPath("container2.png").c_str());
+    uint64_t cubeSpecular = loadTexture(getPath("container2_specular.png").c_str());
+
+    uint32_t defualtShaderID = createShaderProgram("default_vertex.vs", "default_fragment.fs");
+
+    MaterialSSBOData cubeMaterial = {glm::vec4(1.0f, 1.0f, 1.0f, 32.0f), cubeDiffuse, cubeSpecular};
+    MaterialSSBOData noMaterial = {glm::vec4(0.2f, 0.2f, 0.2f, 0.0f), defualtTexture, defualtTexture};
+    materialSSBODataBuffer.buffer[materialSSBODataBuffer.size++] = cubeMaterial; // Index 0
+    materialSSBODataBuffer.buffer[materialSSBODataBuffer.size++] = noMaterial;   // Index 1 - need to find a better way to do this.
+    materialBuffer.buffer[materialBuffer.size++] = MaterialData{defualtShaderID, 0};
+    materialBuffer.buffer[materialBuffer.size++] = MaterialData{defualtShaderID, 1};
+}
+
+uint32_t initMaterialSSBO(MaterialSSBODataBuffer& materialSSBODataBuffer) {
+    uint32_t materialSSBO;
+    glGenBuffers(1, &materialSSBO);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, materialSSBO);
+    // MAYBE SHOULD BE STATIC - DEPENDS HOW OFTEN THE MATERIALS ARE CHANGED.
+    glBufferData(GL_SHADER_STORAGE_BUFFER, materialSSBODataBuffer.capacity * sizeof(MaterialSSBOData), materialSSBODataBuffer.buffer, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, materialSSBO);
+    return materialSSBO;
+}
+
+// TODO: FIX THIS
+void initMeshes(const char* path, MeshBuffer& meshBuffer) {
+    std::ifstream file(getPath(path));
+    if (!file.is_open()) {
+        throw std::runtime_error("Error opening mesh definition file.");
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+
+        if (meshBuffer.size >= meshBuffer.capacity) {
+            std::cout << "Mesh Buffer Full." << std::endl;
+            break;
+        }
+
+        std::istringstream stream(line);
+        uint32_t meshHandle;
+        std::string objPath;
+        std::string drawUsageString;
+        stream >> meshHandle >> objPath >> drawUsageString;
+
+        GLenum drawUsage = GL_STATIC_DRAW;
+        if (drawUsageString == "GL_DYNAMIC_DRAW") drawUsage = GL_DYNAMIC_DRAW;
+        else if (drawUsageString == "GL_STREAM_DRAW") drawUsage = GL_STREAM_DRAW;
+
+        uint32_t vertexCount = 0;
+        float maxFloat = std::numeric_limits<float>::max();
+        AABB localAABB{maxFloat, maxFloat, maxFloat, -maxFloat, -maxFloat, -maxFloat};
+
+        std::vector<float> vertices = parseOBJFile(getPath(objPath), vertexCount, localAABB);
+
+        uint32_t VAO, VBO;
+        glGenVertexArrays(1, &VAO);
+        glGenBuffers(1, &VBO);
+
+        glBindVertexArray(VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), drawUsage);
+
+        size_t stride = 8 * sizeof(float);
+        // Position
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+        glEnableVertexAttribArray(0);
+        // Normals
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+        // TexCoords
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+
+        MeshData& mesh = meshBuffer.buffer[meshBuffer.size++];
+        mesh.handle = meshHandle;
+        mesh.vao = VAO;
+        mesh.vertexCount = vertexCount;
+        mesh.localAABB = localAABB;
+    }
+}
+
+uint32_t createUnitCubePrimitive(MeshBuffer& meshBuffer) {
+    float xOffset = 0.5f;
+    float yOffset = 0.5f;
+    float zOffset = 0.5f;
+
+    float vertices[] = {
+        -xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,
+        xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+        -xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+        -xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+
+        xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+        -xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,
+        -xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
+        xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+        -xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
+        xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,
+
+        -xOffset, -yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        -xOffset, -yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+        -xOffset, yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, -yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        -xOffset, yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+
+        xOffset, -yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, -yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+        xOffset, yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        xOffset, -yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        xOffset, yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+
+        -xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+        xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+
+        -xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+        xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+        -xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f};
+
+    uint32_t VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    GLsizei stride = 8 * sizeof(float);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+
+    glBindVertexArray(0);
+
+    uint32_t handle = static_cast<uint32_t>(meshBuffer.size);
+
+    MeshData& mesh = meshBuffer.buffer[meshBuffer.size++];
+    mesh.handle = handle;
+    mesh.vao = VAO;
+    mesh.vertexCount = 36;
+    mesh.localAABB = AABB{-xOffset, -yOffset, -zOffset, xOffset, yOffset, zOffset};
+
+    return handle;
+}

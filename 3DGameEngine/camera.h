@@ -1,7 +1,9 @@
 #pragma once
-#include <glad/glad.h>
+#include <cstdint>
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "sparse_set.h"
+
+struct TransformComponent;
 
 enum class CameraType {
     FIXED,
@@ -32,7 +34,7 @@ struct CameraComponent {
     CameraType cameraType = CameraType::FIXED;
 };
 
-void updateCameraPosition(CameraComponent& camera, glm::vec3 pos);
+void updateCameraPosition(SparseSet<TransformComponent>& transformSet, SparseSet<CameraComponent>& cameraSet);
 void updateCameraVectors(CameraComponent& camera);
 void processMouseScroll(CameraComponent& camera, float yoffset);
 void updateProjectionMatrix(CameraComponent& camera, uint32_t windowWidth, uint32_t windowHeight);

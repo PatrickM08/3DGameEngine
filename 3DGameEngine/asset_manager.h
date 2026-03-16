@@ -1,10 +1,9 @@
 #pragma once
-#include <unordered_map>
-#include <vector>
 #include <string>
+#include <vector>
+#include <cstdint>
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include "shader_s.h"
+#include <glm/glm.hpp>
 
 struct AABB {
     float minX, minY, minZ;
@@ -13,7 +12,7 @@ struct AABB {
 
 struct MeshData {
 	uint32_t handle;
-	GLuint vao;
+	uint32_t vao;
 	GLsizei vertexCount;
     AABB localAABB;
 };
@@ -25,10 +24,26 @@ struct MaterialSSBOData {
 };
 
 struct MaterialData {
-    MaterialSSBOData materialData;
-	uint32_t handle;                // TODO: Not sure if I need both handle and materialSSBOIndex - which probably means I don't
     uint32_t shaderID;
     uint16_t materialSSBOIndex;
+};
+
+struct MeshBuffer {
+    static constexpr uint8_t capacity = 255;
+    uint8_t size = 0;
+    MeshData buffer[capacity];
+};
+
+struct MaterialBuffer {
+    static constexpr uint8_t capacity = 255;
+    uint8_t size = 0;
+    MaterialData buffer[capacity];
+};
+
+struct MaterialSSBODataBuffer {
+    static constexpr uint8_t capacity = 255;
+    uint8_t size = 0;
+    MaterialSSBOData buffer[capacity];
 };
 
 std::string getPath(const std::string &relativePath);
@@ -36,5 +51,9 @@ std::vector<float> parseOBJFile(const std::string& path, uint32_t& vertexCount, 
 uint64_t loadTexture(const char* path);
 uint64_t loadCubemap(const char* (&faces)[6]);
 uint64_t loadSkyboxCubemap();
-void updateMaterialColor(GLuint ssbo, uint32_t index, glm::vec3 newColor);
+void updateMaterialColour(MaterialData& materialData, MaterialSSBOData& materialSSBOData, glm::vec3 newColor, uint32_t ssbo);
 uint64_t createDefaultTexture();
+uint32_t initMaterialSSBO(MaterialSSBODataBuffer& materialSSBODataBuffer);
+void initDefaultMaterials(MaterialBuffer& materialBuffer, MaterialSSBODataBuffer& materialSSBODataBuffer);
+void initMeshes(const char* path, MeshBuffer& meshBuffer);
+uint32_t createUnitCubePrimitive(MeshBuffer& meshBuffer);

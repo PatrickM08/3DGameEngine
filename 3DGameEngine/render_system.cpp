@@ -1,16 +1,16 @@
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <iostream>
-#include "entity.h"
-#include "ecs.h"
 #include "render_system.h"
+#include "asset_manager.h"
+#include "entity.h"
+#include "camera.h"
+#include <iostream>
+#include <glm/gtc/matrix_transform.hpp>
 
-void renderSystem(const std::vector<uint32_t>& visibleEntities, const SparseSet<MaterialData>& materialSet, 
+void renderSystem(const VisibleEntityBuffer& visibleEntityBuffer, const SparseSet<MaterialData>& materialSet, 
                   const SparseSet<MeshData>& meshSet, const SparseSet<TransformComponent>& transformSet, const Framebuffer& framebuffer) {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.buffer);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    for (uint32_t entity : visibleEntities) {
+    for (uint32_t i = 0; i < visibleEntityBuffer.size; ++i) {
+        uint32_t entity = visibleEntityBuffer.buffer[i];
         const MaterialData& material = materialSet.getComponent(entity);
         const MeshData& mesh = meshSet.getComponent(entity);
         // TODO: This needs to be looked at - it would be more efficient to use a cached VP matrix but I don't know if that would cause issues later.
@@ -31,7 +31,7 @@ void renderSystem(const std::vector<uint32_t>& visibleEntities, const SparseSet<
 
 // TODO: MAKE AN INSTANCE SYSTEM, NOT A PRIORITY
 
-void drawToFramebuffer(const Framebuffer& framebuffer, GLuint quadVAO) {
+void drawToFramebuffer(const Framebuffer& framebuffer, uint32_t quadVAO) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glUseProgram(framebuffer.shaderID);
     glBindVertexArray(quadVAO);
@@ -62,73 +62,195 @@ glm::mat4 buildTransformMatrix(const glm::vec3& position, const glm::vec3& scale
     return transformMatrix;
 }
 
-void renderText(const char* text, int textLength, const float xPos, const float yPos,
-                const float size, const uint32_t screenWidth,
-                const uint32_t screenHeight, TextRenderData& textRenderData) {
-    Glyph* glyphs = textRenderData.glyphs;
-    GLuint& textShaderID = textRenderData.textShaderID;
-    glUseProgram(textShaderID);
-    glBindVertexArray(textRenderData.textVAO);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textRenderData.bitmapFontTextureID);
+void performLightCulling(const SparseSet<PointLightComponent>& pointLightSet,
+                         const SparseSet<TransformComponent>& transformSet,
+                         VisiblePointLightBuffer& visiblePointLightBuffer,
+                         const glm::vec4* frustumPlanes) {
 
-    glUniform2f(0, xPos, yPos);                // 0 = screenPosition location
-    glUniform1f(1, size);                      // 1 = scale location
-    glUniform2f(2, screenWidth, screenHeight); // 2 = screenSize location
+    visiblePointLightBuffer.size = 0;
 
-    float* vertices = textRenderData.vertices;
-    int elementsToUse = textLength * 24;
-    float currentX = 0.0f;
-    for (int i = 0; i < textLength; i++) {
-        Glyph glyph = glyphs[text[i] - 32]; // TODO: THIS WONT WORK FOR BLANK CHARACTERS I THINK
+    for (uint32_t i = 0; i < pointLightSet.entityCount; ++i) {
+        uint32_t entity = pointLightSet.entities[i];
 
-        int base = i * 24;
+        const auto& light = pointLightSet.getComponent(entity);
+        const auto& transform = transformSet.getComponent(entity);
 
-        float left = currentX + glyph.xoffset;
-        float right = left + glyph.width;
-        float bottom = -glyph.yoffset;
-        float top = -glyph.yoffset + glyph.height;
+        bool isInside = true;
 
-        // Top-left vertex
-        vertices[base + 0] = left;
-        vertices[base + 1] = top;
-        vertices[base + 2] = glyph.u0;
-        vertices[base + 3] = glyph.v0;
+        for (int i = 0; i < 6; ++i) {
+            float distance = glm::dot(glm::vec3(frustumPlanes[i]), transform.position) + frustumPlanes[i].w;
 
-        // Bottom-left vertex
-        vertices[base + 4] = left;
-        vertices[base + 5] = bottom;
-        vertices[base + 6] = glyph.u0;
-        vertices[base + 7] = glyph.v1;
+            if (distance < -light.radius) {
+                isInside = false;
+                break;
+            }
+        }
 
-        // Bottom-right vertex
-        vertices[base + 8] = right;
-        vertices[base + 9] = bottom;
-        vertices[base + 10] = glyph.u1;
-        vertices[base + 11] = glyph.v1;
-
-        // Top-left vertex
-        vertices[base + 12] = left;
-        vertices[base + 13] = top;
-        vertices[base + 14] = glyph.u0;
-        vertices[base + 15] = glyph.v0;
-
-        // Bottom-right vertex
-        vertices[base + 16] = right;
-        vertices[base + 17] = bottom;
-        vertices[base + 18] = glyph.u1;
-        vertices[base + 19] = glyph.v1;
-
-        // Top-right vertex
-        vertices[base + 20] = right;
-        vertices[base + 21] = top;
-        vertices[base + 22] = glyph.u1;
-        vertices[base + 23] = glyph.v0;
-
-        currentX += glyph.xadvance;
+        if (isInside) {
+            // TODO: ADD SAFETY CHECK
+            visiblePointLightBuffer.buffer[visiblePointLightBuffer.size++] = PackedLightData{glm::vec4(light.colour, light.intensity),
+                                                                                             glm::vec4(transform.position, light.radius)};
+        }
     }
-    glBindBuffer(GL_ARRAY_BUFFER, textRenderData.textVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, elementsToUse * sizeof(float),
-                    vertices);
-    glDrawArrays(GL_TRIANGLES, 0, 6 * textLength);
+}
+
+void performFrustumCulling(const SparseSet<RenderableTag>& renderableSet,
+                           const SparseSet<TransformComponent>& transformSet,
+                           const SparseSet<MeshData>& meshSet,
+                           VisibleEntityBuffer& visibleEntityBuffer,
+                           const glm::vec4* frustumPlanes) {
+
+    visibleEntityBuffer.size = 0;
+    for (uint32_t i = 0; i < renderableSet.entityCount; ++i) {
+        uint32_t entity = renderableSet.entities[i];
+        const TransformComponent& transform = transformSet.getComponent(entity);
+        const MeshData& mesh = meshSet.getComponent(entity);
+
+        // ARVO METHOD
+        // TODO: EXPLAIN ARVO METHOD
+        glm::mat3 R = glm::mat3_cast(transform.rotation);
+
+        glm::vec3 localCenter = glm::vec3(
+            (mesh.localAABB.minX + mesh.localAABB.maxX) * 0.5f,
+            (mesh.localAABB.minY + mesh.localAABB.maxY) * 0.5f,
+            (mesh.localAABB.minZ + mesh.localAABB.maxZ) * 0.5f);
+        glm::vec3 localExtent = glm::vec3(
+            (mesh.localAABB.maxX - mesh.localAABB.minX) * 0.5f,
+            (mesh.localAABB.maxY - mesh.localAABB.minY) * 0.5f,
+            (mesh.localAABB.maxZ - mesh.localAABB.minZ) * 0.5f);
+
+        glm::vec3 worldCenter = transform.position + (R * (localCenter * transform.scale));
+
+        glm::vec3 worldExtent;
+        for (int i = 0; i < 3; ++i) {
+            worldExtent[i] =
+                glm::abs(R[0][i] * transform.scale.x) * localExtent.x +
+                glm::abs(R[1][i] * transform.scale.y) * localExtent.y +
+                glm::abs(R[2][i] * transform.scale.z) * localExtent.z;
+        }
+
+        bool isInside = true;
+        // A frustum is always made up of six planes.
+        for (int i = 0; i < 6; ++i) {
+            const glm::vec4& plane = frustumPlanes[i];
+
+            float r = worldExtent.x * glm::abs(plane.x) +
+                      worldExtent.y * glm::abs(plane.y) +
+                      worldExtent.z * glm::abs(plane.z);
+
+            float s = glm::dot(glm::vec3(plane), worldCenter) + plane.w;
+
+            if (s < -r) {
+                isInside = false;
+                break;
+            }
+        }
+
+        if (isInside) {
+            visibleEntityBuffer.buffer[visibleEntityBuffer.size++] = entity;
+        }
+    }
+}
+
+GLuint createSceneUBO() {
+    GLuint sceneUBO;
+    glGenBuffers(1, &sceneUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, sceneUBO);
+
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(SceneUBOData), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, sceneUBO);
+
+    return sceneUBO;
+}
+
+void updateSceneData(SceneUBOData& sceneData, const CameraComponent& camera,
+                     const VisiblePointLightBuffer& visiblePointLightBuffer, const SkyboxData& skyboxData) {
+    sceneData.viewMatrix = camera.viewMatrix;
+    sceneData.projectionMatrix = camera.projectionMatrix;
+    sceneData.cameraPosition = camera.position;
+    sceneData.pointLightCount = (uint32_t)visiblePointLightBuffer.size;
+    sceneData.skyboxCubemapHandle = skyboxData.cubemapHandle;
+};
+
+void uploadSceneUBO(const uint32_t sceneUBO, const SceneUBOData sceneData) {
+    glBindBuffer(GL_UNIFORM_BUFFER, sceneUBO);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(SceneUBOData), &sceneData);
+}
+
+uint32_t createLightSSBO(uint32_t maxLights) {
+    uint32_t lightSSBO;
+    glGenBuffers(1, &lightSSBO);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightSSBO);
+
+    glBufferData(GL_SHADER_STORAGE_BUFFER, maxLights * sizeof(PackedLightData), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, lightSSBO);
+
+    return lightSSBO;
+}
+
+void uploadLightSSBO(const uint32_t lightSSBO, const VisiblePointLightBuffer& visiblePointLightBuffer) {
+    if (visiblePointLightBuffer.size == 0) return;
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightSSBO);
+
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0,
+                    visiblePointLightBuffer.size * sizeof(PackedLightData),
+                    visiblePointLightBuffer.buffer);
+}
+
+Framebuffer createFrameBuffer(const uint32_t framebufferShaderID, const uint32_t width, const uint32_t height) {
+    unsigned int framebuffer;
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    unsigned int textureColorbuffer;
+    glGenTextures(1, &textureColorbuffer);
+    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+
+    unsigned int rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!"
+                  << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    return Framebuffer{.buffer = framebuffer,
+                       .textureAttachment = textureColorbuffer,
+                       .renderBufferObject = rbo,
+                       .shaderID = framebufferShaderID};
+}
+
+uint32_t createQuad() {
+    float quadVertices[] = {-1.0f, 1.0f, 0.0f, 1.0f, -1.0f, -1.0f,
+                            0.0f, 0.0f, 1.0f, -1.0f, 1.0f, 0.0f,
+
+                            -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, -1.0f,
+                            1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+    unsigned int quadVAO, quadVBO;
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    return quadVAO;
+}
+
+void initOpenglRenderState() {
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_CULL_FACE);
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 }
