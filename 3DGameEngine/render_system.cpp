@@ -13,9 +13,7 @@ void renderSystem(const VisibleEntityBuffer& visibleEntityBuffer, const SparseSe
         uint32_t entity = visibleEntityBuffer.buffer[i];
         const MaterialData& material = materialSet.getComponent(entity);
         const MeshData& mesh = meshSet.getComponent(entity);
-        // TODO: This needs to be looked at - it would be more efficient to use a cached VP matrix but I don't know if that would cause issues later.
         const TransformComponent& transform = transformSet.getComponent(entity);
-        // TODO: I THINK THIS IS WRONG NOW, NEED TO PROFILE
         glm::mat4 transformMatrix = buildTransformMatrix(transform.position, transform.scale, transform.rotation);
         glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(transformMatrix)));
         glProgramUniformMatrix4fv(material.shaderID, 0, 1, GL_FALSE, &transformMatrix[0][0]);
@@ -28,8 +26,6 @@ void renderSystem(const VisibleEntityBuffer& visibleEntityBuffer, const SparseSe
         glDepthFunc(GL_LESS);
     }
 }
-
-// TODO: MAKE AN INSTANCE SYSTEM, NOT A PRIORITY
 
 void drawToFramebuffer(const Framebuffer& framebuffer, uint32_t quadVAO) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -107,7 +103,6 @@ void performFrustumCulling(const SparseSet<RenderableTag>& renderableSet,
         const MeshData& mesh = meshSet.getComponent(entity);
 
         // ARVO METHOD
-        // TODO: EXPLAIN ARVO METHOD
         glm::mat3 R = glm::mat3_cast(transform.rotation);
 
         glm::vec3 localCenter = glm::vec3(

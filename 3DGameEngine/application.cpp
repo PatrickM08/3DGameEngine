@@ -9,7 +9,6 @@
 #include "imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
-#include <chrono>
 
 static constexpr bool LOAD_SCENE_FROM_FILE = false;
 static constexpr const char* SCENE_PATH = "scene.bin";
@@ -46,7 +45,6 @@ int run(ECS& scene) {
 
     while (!glfwWindowShouldClose(windowPtr)) {
         setGui(scene);
-        auto start = std::chrono::steady_clock::now();
 
         if (!scene.cameraSet.hasComponent(scene.currentCamera) && scene.cameraSet.entityCount > 0)
             scene.currentCamera = scene.cameraSet.entities[0];
@@ -82,8 +80,6 @@ int run(ECS& scene) {
 
         glfwSwapBuffers(windowPtr);
         std::memcpy(scene.lastKeyStateBuffer, scene.keyStateBuffer, sizeof(scene.keyStateBuffer));
-        auto end = std::chrono::steady_clock::now();
-        std::cout << end - start << std::endl;
     }
     return 0;
 }

@@ -46,7 +46,21 @@ void setGui(ECS& scene) {
 
     ImGui::SetNextWindowSize(ImVec2(400, 600), ImGuiCond_Once);
     ImGui::Begin("Editor");
-    ImGui::Text("FPS: %.1f", 1.0f / scene.deltaTime);
+    static float samples[500] = {};
+    static int sampleIndex = 0;
+    static float avgFPS = 0.0f;
+
+    samples[sampleIndex % 500] = 1.0f / scene.deltaTime;
+    sampleIndex++;
+
+    if (sampleIndex % 500 == 0) {
+        avgFPS = 0.0f;
+        for (float s : samples)
+            avgFPS += s;
+        avgFPS /= 500.0f;
+    }
+
+    ImGui::Text("FPS: %.1f", avgFPS);
     ImGui::Text("Entities: %d", (int)scene.transformSet.entityCount);
     ImGui::Text("Visible Entities: %d", (int)scene.visibleEntityBuffer.size);
     ImGui::Text("Visible Lights: %d", (int)scene.visiblePointLightBuffer.size);

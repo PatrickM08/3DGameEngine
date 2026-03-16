@@ -11,6 +11,8 @@
 #include <GLFW/glfw3.h>
 #include <cstdio>
 #include "asset_manager.h"
+#include <chrono>
+#include <iostream>
 
 uint32_t createCube(ECS& scene, glm::vec3 pos, glm::vec3 scale, uint32_t materialID) {
     uint32_t id = ++scene.entityCount;
@@ -59,13 +61,10 @@ void initState(ECS& scene) {
     ImGuiIO& io = ImGui::GetIO();
     io.FontGlobalScale = 2.0f;
     (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; 
 
-    // Setup Style
     ImGui::StyleColorsDark();
 
-    // Setup Platform/Renderer backends
-    // The second parameter 'true' allows ImGui to install its own GLFW callbacks
     ImGui_ImplGlfw_InitForOpenGL(scene.window.windowPtr, false);
     ImGui_ImplOpenGL3_Init("#version 430");
 }
@@ -148,11 +147,6 @@ void addTextFloat(ECS& scene, const char* text, float value, uint8_t textLength,
 }
 
 void updateScene(ECS& scene, CameraComponent& camera) {
-    if (scene.healthSet.hasComponent(2))
-        addTextFloat(scene, "Player 1: ", (float)scene.healthSet.getComponent(2).health, 11, 100, 100, 2);
-    else
-        addText(scene, "Player 1: 0",11, 100, 100, 2);
-
     worldSpaceInputSystem(scene.inputWorldSet, scene.velocitySet, scene.speedSet, scene.inputMapSet, scene.keyStateBuffer);
     tankInputSystem(scene.rotationSpeedSet, scene.speedSet, scene.inputTankSet,
                     scene.velocitySet, scene.transformSet, scene.deltaTime, scene.keyStateBuffer, scene.inputMapSet);
@@ -171,9 +165,14 @@ void updateScene(ECS& scene, CameraComponent& camera) {
     uploadSceneUBO(scene.sceneUBO, scene.sceneData);
     performFrustumCulling(scene.renderableSet, scene.transformSet, scene.meshSet,
                           scene.visibleEntityBuffer, camera.frustumPlanes);
+
+    auto start = std::chrono::steady_clock::now();
     renderSystem(scene.visibleEntityBuffer, scene.materialSet, scene.meshSet, scene.transformSet, scene.framebuffer);
     renderSkybox(scene.skyboxData);
     drawToFramebuffer(scene.framebuffer, scene.quadVAO);
+    auto end = std::chrono::steady_clock::now();
+
+    std::cout << end - start << std::endl;
 
     renderTextSystem(scene.textBuffer, scene.textRenderData, scene.window.width, scene.window.height);
     deleteSystem(scene);
