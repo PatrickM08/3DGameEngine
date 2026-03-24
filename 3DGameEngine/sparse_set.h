@@ -1,22 +1,87 @@
 #pragma once
 #include <cstdint>
 #include <algorithm>
+#include "entity.h"
+#include "asset_manager.h"
 
-// WE SHOULD MAKE THIS DYNAMIC PER ENTITY
-static constexpr uint32_t MAX_ENTITIES = 6000;
-static constexpr uint32_t INVALID_INDEX = UINT32_MAX;
+#define MAX_ENTITIES 6000
+#define CAPACITY_TRANSFORM 6000
+#define CAPACITY_MESH 6000
+#define CAPACITY_MATERIAL 6000
+#define CAPACITY_RENDERABLE 6000
+#define CAPACITY_VELOCITY 6000
+#define CAPACITY_COLLISION 6000
+#define CAPACITY_DYNAMIC 16
+#define CAPACITY_BULLET 128
+#define CAPACITY_CAMERA 4
+#define CAPACITY_POINT_LIGHT 256
+#define CAPACITY_HEALTH 4
+#define CAPACITY_SPEED 16
+#define CAPACITY_ROT_SPEED 16
+#define CAPACITY_PATROL 16
+#define CAPACITY_INPUT_MAP 16
+#define CAPACITY_INPUT_WORLD 16
+#define CAPACITY_INPUT_TANK 16
+#define CAPACITY_INPUT_NOCLIP 16
+#define CAPACITY_NAME 256
+
+constexpr size_t ARENA_SIZE =
+    CAPACITY_TRANSFORM * (sizeof(TransformComponent) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_MESH * (sizeof(MeshData) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_MATERIAL * (sizeof(MaterialData) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_RENDERABLE * (sizeof(RenderableTag) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_VELOCITY * (sizeof(VelocityComponent) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_COLLISION * (sizeof(CollisionComponent) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_DYNAMIC * (sizeof(DynamicTag) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_BULLET * (sizeof(BulletTag) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_CAMERA * (sizeof(CameraComponent) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_POINT_LIGHT * (sizeof(PointLightComponent) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_HEALTH * (sizeof(HealthComponent) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_SPEED * (sizeof(SpeedComponent) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_ROT_SPEED * (sizeof(RotationSpeedComponent) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_PATROL * (sizeof(PatrolComponent) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_INPUT_MAP * (sizeof(InputMapComponent) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_INPUT_WORLD * (sizeof(PlayerInputWorldTag) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_INPUT_TANK * (sizeof(PlayerInputTankTag) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_INPUT_NOCLIP * (sizeof(PlayerInputNoClipTag) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    CAPACITY_NAME * (sizeof(NameComponent) + sizeof(uint32_t)) + MAX_ENTITIES * sizeof(uint32_t) +
+    1024; // in case of padding
+
+struct Arena {
+    uint8_t* base;
+    size_t offset = 0;
+    size_t capacity;
+
+    void init(size_t bytes) {
+        base = (uint8_t*)malloc(bytes);
+        capacity = bytes;
+    }
+
+    void* alloc(size_t bytes, size_t alignment) {
+        offset = (offset + alignment - 1) & ~(alignment - 1);
+        void* ptr = base + offset;
+        offset += bytes;
+        return ptr;
+    }
+};
+
+#define INVALID_INDEX UINT32_MAX
 
 template <typename Component>
 class SparseSet {
 public:
-    uint32_t sparse[MAX_ENTITIES];
-    Component dense[MAX_ENTITIES];
-    uint32_t entities[MAX_ENTITIES];
-    uint32_t entityCount;
+    uint32_t* sparse;
+    Component* dense;
+    uint32_t* entities;
+    uint32_t entityCount = 0;
+    uint32_t denseCapacity;
 
-    SparseSet() {
+    void init(Arena& arena, uint32_t capacity) {
+        denseCapacity = capacity;
+        sparse = (uint32_t*)arena.alloc(MAX_ENTITIES * sizeof(uint32_t), alignof(uint32_t));
+        dense = (Component*)arena.alloc(capacity * sizeof(Component), alignof(Component));
+        entities = (uint32_t*)arena.alloc(capacity * sizeof(uint32_t), alignof(uint32_t));
         std::fill(sparse, sparse + MAX_ENTITIES, INVALID_INDEX);
-        entityCount = 0;
     }
 
     bool hasComponent(uint32_t entityID) const {
@@ -38,7 +103,7 @@ public:
     }
 
     void add(uint32_t entityID, const Component& component) {
-        if (entityCount >= MAX_ENTITIES - 1) return;
+        if (entityCount >= denseCapacity) return;
         dense[entityCount] = component;
         sparse[entityID] = entityCount;
         entities[entityCount] = entityID;

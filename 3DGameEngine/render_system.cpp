@@ -23,7 +23,6 @@ void renderSystem(const VisibleEntityBuffer& visibleEntityBuffer, const SparseSe
         glProgramUniform1i(material.shaderID, 2, material.materialSSBOIndex);
         glUseProgram(material.shaderID);
         glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
-        glDepthFunc(GL_LESS);
     }
 }
 

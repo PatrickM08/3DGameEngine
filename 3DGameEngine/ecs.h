@@ -14,6 +14,7 @@
 struct ECS {
     float deltaTime, lastFrame;
 
+    Arena arena;
     SparseSet<TransformComponent> transformSet;
     SparseSet<MeshData> meshSet;
     SparseSet<MaterialData> materialSet;
@@ -42,7 +43,10 @@ struct ECS {
     MaterialSSBODataBuffer materialSSBODataBuffer;
     uint32_t materialSSBO;
 
-    uint32_t entityCount;
+    uint32_t entityCount = 0;
+    uint32_t freeStack[64]; // Right now this is the same capacity as the delete buffer which makes sense,
+                            // a change in the delete buffer should be a change in this so probably should be a defined capacity.
+    uint8_t freeStackSize = 0;
 
     Framebuffer framebuffer;
     uint32_t quadVAO;
@@ -80,6 +84,8 @@ void initState(ECS& scene);
 
 void initScene(ECS& scene);
 void updateScene(ECS& scene, CameraComponent& camera);
+
+uint32_t createEntity(ECS& scene);
 
 void createBullet(ECS& scene, glm::vec3 position, glm::quat rotation);
 

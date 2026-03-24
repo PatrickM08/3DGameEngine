@@ -32,5 +32,4 @@ void noClipInputSystem(const SparseSet<PlayerInputNoClipTag>& inputNoClipSet, co
     void patrolSystem(SparseSet<PatrolComponent>& patrolSet, const SparseSet<SpeedComponent>& speedSet,
                       SparseSet<VelocityComponent>& velocitySet, float deltaTime);
 
-void movementSystem(const SparseSet<VelocityComponent>& velocitySet, SparseSet<TransformComponent>& transformSet,
-                    SparseSet<CameraComponent>& cameraSet, float deltaTime);
+void movementSystem(const SparseSet<VelocityComponent>& velocitySet, SparseSet<TransformComponent>& transformSet, float deltaTime);

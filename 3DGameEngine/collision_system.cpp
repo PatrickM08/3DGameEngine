@@ -124,6 +124,7 @@ void deleteSystem(ECS& scene) {
     for (uint32_t i = 0; i < size; ++i) {
         if (deleteBuffer[i] == last) continue;
         scene.transformSet.remove(deleteBuffer[i]);
+        scene.freeStack[scene.freeStackSize++] = deleteBuffer[i]; // This is fine but only because everything has a transform, the delete system will be reworked.
         last = deleteBuffer[i];
     }
 

@@ -42,6 +42,9 @@ void handleWindowEvent(const Event& event, WindowData& window, Framebuffer& fram
         glViewport(0, 0, event.resize.width, event.resize.height);
         window.width = event.resize.width;
         window.height = event.resize.height;
+        glDeleteFramebuffers(1, &framebuffer.buffer);
+        glDeleteTextures(1, &framebuffer.textureAttachment);
+        glDeleteRenderbuffers(1, &framebuffer.renderBufferObject);
         framebuffer = createFrameBuffer(framebuffer.shaderID, window.width, window.height);
         updateProjectionMatrix(camera, window.width, window.height);
         break;

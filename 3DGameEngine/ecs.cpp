@@ -15,7 +15,7 @@
 #include <iostream>
 
 uint32_t createCube(ECS& scene, glm::vec3 pos, glm::vec3 scale, uint32_t materialID) {
-    uint32_t id = ++scene.entityCount;
+    uint32_t id = createEntity(scene);
 
     scene.meshSet.add(id, scene.meshBuffer.buffer[scene.cubePrimitiveIndex]);
     scene.materialSet.add(id, scene.materialBuffer.buffer[materialID]);
@@ -31,7 +31,27 @@ uint32_t createCube(ECS& scene, glm::vec3 pos, glm::vec3 scale, uint32_t materia
 }
 
 void initState(ECS& scene) {
-    scene.entityCount = 0;
+    scene.arena.init(ARENA_SIZE);
+    scene.transformSet.init(scene.arena, CAPACITY_TRANSFORM);
+    scene.meshSet.init(scene.arena, CAPACITY_MESH);
+    scene.materialSet.init(scene.arena, CAPACITY_MATERIAL);
+    scene.inputWorldSet.init(scene.arena, CAPACITY_INPUT_WORLD);
+    scene.inputTankSet.init(scene.arena, CAPACITY_INPUT_TANK);
+    scene.inputNoClipSet.init(scene.arena, CAPACITY_INPUT_NOCLIP);
+    scene.velocitySet.init(scene.arena, CAPACITY_VELOCITY);
+    scene.speedSet.init(scene.arena, CAPACITY_SPEED);
+    scene.rotationSpeedSet.init(scene.arena, CAPACITY_ROT_SPEED);
+    scene.patrolSet.init(scene.arena, CAPACITY_PATROL);
+    scene.collisionSet.init(scene.arena, CAPACITY_COLLISION);
+    scene.renderableSet.init(scene.arena, CAPACITY_RENDERABLE);
+    scene.cameraSet.init(scene.arena, CAPACITY_CAMERA);
+    scene.pointLightSet.init(scene.arena, CAPACITY_POINT_LIGHT);
+    scene.bulletSet.init(scene.arena, CAPACITY_BULLET);
+    scene.dynamicSet.init(scene.arena, CAPACITY_DYNAMIC);
+    scene.healthSet.init(scene.arena, CAPACITY_HEALTH);
+    scene.inputMapSet.init(scene.arena, CAPACITY_INPUT_MAP);
+    scene.nameSet.init(scene.arena, CAPACITY_NAME);
+
     scene.window.width = 1600;
     scene.window.height = 1200;
     scene.window.title = "PROTOPLAY";
@@ -84,11 +104,12 @@ void initScene(ECS& scene) {
     scene.cameraSet.add(scene.entityCount, camera);
     scene.nameSet.add(scene.entityCount, NameComponent{"Camera"});
 
-    ++scene.entityCount;
-    scene.meshSet.add(scene.entityCount, scene.meshBuffer.buffer[1]);
-    scene.materialSet.add(scene.entityCount, scene.materialBuffer.buffer[1]);
-    scene.renderableSet.add(scene.entityCount, RenderableTag{});
-    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(-50, 0, 50)});
+    uint32_t baseplate = createEntity(scene);
+    scene.meshSet.add(baseplate, scene.meshBuffer.buffer[1]);
+    scene.materialSet.add(baseplate, scene.materialBuffer.buffer[1]);
+    scene.renderableSet.add(baseplate, RenderableTag{});
+    scene.transformSet.add(baseplate, TransformComponent{.position = glm::vec3(-50, 0, 50)});
+    scene.nameSet.add(baseplate, NameComponent{"Baseplate"});
 
     const uint32_t MAT = 0;
 
@@ -152,7 +173,7 @@ void updateScene(ECS& scene, CameraComponent& camera) {
                     scene.velocitySet, scene.transformSet, scene.deltaTime, scene.keyStateBuffer, scene.inputMapSet);
     noClipInputSystem(scene.inputNoClipSet, scene.speedSet, scene.velocitySet, scene.inputMapSet, scene.keyStateBuffer, camera.front, camera.right);
     patrolSystem(scene.patrolSet, scene.speedSet, scene.velocitySet, scene.deltaTime);
-    movementSystem(scene.velocitySet, scene.transformSet, scene.cameraSet, scene.deltaTime);
+    movementSystem(scene.velocitySet, scene.transformSet, scene.deltaTime);
     bulletSystem(scene);
     collisionSystem(scene.collisionSet, scene.transformSet, scene.dynamicSet, scene.bulletSet, scene.healthSet,
                     scene.physicsManifold, scene.deleteBuffer);
@@ -172,7 +193,7 @@ void updateScene(ECS& scene, CameraComponent& camera) {
     drawToFramebuffer(scene.framebuffer, scene.quadVAO);
     auto end = std::chrono::steady_clock::now();
 
-    std::cout << end - start << std::endl;
+    //std::cout << end - start << std::endl;
 
     renderTextSystem(scene.textBuffer, scene.textRenderData, scene.window.width, scene.window.height);
     deleteSystem(scene);
@@ -195,22 +216,29 @@ void bulletSystem(ECS& scene) {
 
 // TODO: NEED TO MAKE THIS BETTER
 void createBullet(ECS& scene, glm::vec3 position, glm::quat rotation) {
-    ++scene.entityCount;
-    scene.meshSet.add(scene.entityCount, scene.meshBuffer.buffer[scene.cubePrimitiveIndex]);
-    scene.materialSet.add(scene.entityCount, scene.materialBuffer.buffer[0]);
-    scene.renderableSet.add(scene.entityCount, RenderableTag{});
+    uint32_t bullet = createEntity(scene);
+    scene.meshSet.add(bullet, scene.meshBuffer.buffer[scene.cubePrimitiveIndex]);
+    scene.materialSet.add(bullet, scene.materialBuffer.buffer[0]);
+    scene.renderableSet.add(bullet, RenderableTag{});
     glm::vec3 front = rotation * glm::vec3(0.0f, 0.0f, -1.0f);
     float bulletOffset = 1.0f;
     position += bulletOffset * front;
-    scene.transformSet.add(scene.entityCount, TransformComponent{.position = position, .scale = glm::vec3(0.2f)});
-    scene.collisionSet.add(scene.entityCount, CollisionComponent{.minX = -0.1f, .maxX = 0.1f, .minY = -0.1f, .maxY = 0.1f, .minZ = -0.1f, .maxZ = 0.1f});
-    scene.velocitySet.add(scene.entityCount, VelocityComponent{glm::vec3(10.0f * front)});
-    scene.bulletSet.add(scene.entityCount, BulletTag{});
-    scene.dynamicSet.add(scene.entityCount, DynamicTag{});
+    scene.transformSet.add(bullet, TransformComponent{.position = position, .scale = glm::vec3(0.2f)});
+    scene.collisionSet.add(bullet, CollisionComponent{.minX = -0.1f, .maxX = 0.1f, .minY = -0.1f, .maxY = 0.1f, .minZ = -0.1f, .maxZ = 0.1f});
+    scene.velocitySet.add(bullet, VelocityComponent{glm::vec3(10.0f * front)});
+    scene.bulletSet.add(bullet, BulletTag{});
+    scene.dynamicSet.add(bullet, DynamicTag{});
 }
 
 void updateTiming(ECS& scene) {
     float currentFrame = (float)glfwGetTime();
     scene.deltaTime = currentFrame - scene.lastFrame;
     scene.lastFrame = currentFrame;
+}
+
+uint32_t createEntity(ECS& scene) {
+    if (scene.freeStackSize > 0) {
+        return scene.freeStack[--scene.freeStackSize];
+    }
+    return ++scene.entityCount;
 }

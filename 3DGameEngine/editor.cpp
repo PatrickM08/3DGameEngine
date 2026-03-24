@@ -100,7 +100,7 @@ void setGui(ECS& scene) {
     }
     
     // Create Entity
-    if (ImGui::Button("Create Blank Entity")) scene.transformSet.add(++scene.entityCount, TransformComponent{});
+    if (ImGui::Button("Create Blank Entity")) scene.transformSet.add(createEntity(scene), TransformComponent{});
 
     ImGui::InputText("File Name", scene.fileNameBuffer, sizeof(scene.fileNameBuffer));
     if (ImGui::Button("Save Scene")) {

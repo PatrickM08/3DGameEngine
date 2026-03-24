@@ -84,8 +84,7 @@ void patrolSystem(SparseSet<PatrolComponent>& patrolSet, const SparseSet<SpeedCo
 }
 
 
-void movementSystem(const SparseSet<VelocityComponent>& velocitySet, SparseSet<TransformComponent>& transformSet, 
-					SparseSet<CameraComponent>& cameraSet, float deltaTime) {
+void movementSystem(const SparseSet<VelocityComponent>& velocitySet, SparseSet<TransformComponent>& transformSet, float deltaTime) {
     for (uint32_t i = 0; i < velocitySet.entityCount; ++i) {
         uint32_t entity = velocitySet.entities[i];
 		auto& transform = transformSet.getComponent(entity);
