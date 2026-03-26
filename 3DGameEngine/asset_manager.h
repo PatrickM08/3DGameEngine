@@ -11,11 +11,19 @@ struct AABB {
 };
 
 struct MeshData {
-	uint32_t handle;
-	uint32_t vao;
-	GLsizei vertexCount;
+    uint32_t handle;
+    uint32_t vao;
+    GLsizei vertexCount;
+    GLsizei indexCount;
     AABB localAABB;
 };
+
+struct MeshFileHeader {
+    uint32_t vertexCount;
+    uint32_t indexCount;
+    AABB localAABB;
+};
+
 
 struct MaterialSSBOData {
     glm::vec4 colourAndShine;
@@ -47,7 +55,6 @@ struct MaterialSSBODataBuffer {
 };
 
 std::string getPath(const std::string &relativePath);
-std::vector<float> parseOBJFile(const std::string& path, uint32_t& vertexCount, AABB& localAABB);
 uint64_t loadTexture(const char* path);
 uint64_t loadCubemap(const char* (&faces)[6]);
 uint64_t loadSkyboxCubemap();
@@ -55,5 +62,5 @@ void updateMaterialColour(MaterialData& materialData, MaterialSSBOData& material
 uint64_t createDefaultTexture();
 uint32_t initMaterialSSBO(MaterialSSBODataBuffer& materialSSBODataBuffer);
 void initDefaultMaterials(MaterialBuffer& materialBuffer, MaterialSSBODataBuffer& materialSSBODataBuffer);
-void initMeshes(const char* path, MeshBuffer& meshBuffer);
+void initMeshes(MeshBuffer& meshBuffer);
 uint32_t createUnitCubePrimitive(MeshBuffer& meshBuffer);

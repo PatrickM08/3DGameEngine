@@ -60,7 +60,7 @@ void initState(ECS& scene) {
     initDefaultMaterials(scene.materialBuffer, scene.materialSSBODataBuffer);
     scene.materialSSBO = initMaterialSSBO(scene.materialSSBODataBuffer);
     scene.cubePrimitiveIndex = createUnitCubePrimitive(scene.meshBuffer);
-    initMeshes("meshes.txt", scene.meshBuffer);
+    initMeshes(scene.meshBuffer);
     scene.framebuffer = createFrameBuffer(createShaderProgram("fb_vertex_shader.vs", "fb_fragment_shader.fs"), scene.window.width, scene.window.height);
     scene.quadVAO = createQuad();
     scene.lightSSBO = createLightSSBO(scene.visiblePointLightBuffer.capacity);
@@ -90,70 +90,48 @@ void initState(ECS& scene) {
 }
 
 void initScene(ECS& scene) {
-    scene.meshSet.add(scene.entityCount, scene.meshBuffer.buffer[1]);
-    scene.transformSet.add(scene.entityCount, TransformComponent{.position = glm::vec3(0.0f, 20.0f, 10.0f)});
-
+    uint32_t camEntity = createEntity(scene);
+    scene.meshSet.add(camEntity, scene.meshBuffer.buffer[1]);
+    scene.velocitySet.add(camEntity, VelocityComponent{glm::vec3(0.0f)});
+    scene.speedSet.add(camEntity, SpeedComponent{5.0f});
+    scene.transformSet.add(camEntity, TransformComponent{.position = glm::vec3(0.0f, 0.0f, 0.0f)});
+    scene.inputNoClipSet.add(camEntity, PlayerInputNoClipTag{});
+    scene.inputMapSet.add(camEntity, {.forwardIndex = GLFW_KEY_W - 31, .backIndex = GLFW_KEY_S - 31, .leftIndex = GLFW_KEY_A - 31, .rightIndex = GLFW_KEY_D - 31, .shootIndex = GLFW_KEY_SPACE - 31});
     CameraComponent camera{
         .positionOffset = glm::vec3(0.0f),
+        .position = glm::vec3(0.0f, 0.0f, 0.0f),
         .worldUp = glm::vec3(0, 1, 0),
-        .yaw = -90.0f,
-        .pitch = -60.0f,
-        .cameraType = CameraType::FIXED};
-
+        .yaw = -45.0f,
+        .pitch = -90.0f,
+        .cameraType = CameraType::MOUSETURN};
     updateCameraVectors(camera);
-    scene.cameraSet.add(scene.entityCount, camera);
-    scene.nameSet.add(scene.entityCount, NameComponent{"Camera"});
+    scene.cameraSet.add(camEntity, camera);
+    scene.nameSet.add(camEntity, NameComponent{"Camera"});
 
-    uint32_t baseplate = createEntity(scene);
-    scene.meshSet.add(baseplate, scene.meshBuffer.buffer[1]);
-    scene.materialSet.add(baseplate, scene.materialBuffer.buffer[1]);
-    scene.renderableSet.add(baseplate, RenderableTag{});
-    scene.transformSet.add(baseplate, TransformComponent{.position = glm::vec3(-50, 0, 50)});
-    scene.nameSet.add(baseplate, NameComponent{"Baseplate"});
+    const uint32_t numEntities = 5000;
+    const uint32_t numLights = 100;
+    const uint32_t lightEvery = numEntities / numLights;
 
-    const uint32_t MAT = 0;
+    for (uint32_t i = 0; i < numEntities; ++i) {
+        float xPos = static_cast<float>(i % 70) * 3.0f;
+        float zPos = static_cast<float>(i / 70) * 3.0f;
 
-    uint32_t p1 = createCube(scene, {-5.0f, 0.5f, -2.0f}, {1, 1, 1}, MAT);
-    scene.speedSet.add(p1, {5.0f});
-    scene.rotationSpeedSet.add(p1, {100.0f});
-    scene.inputTankSet.add(p1, PlayerInputTankTag{});
-    scene.inputMapSet.add(p1, {.forwardIndex = GLFW_KEY_W - 31, .backIndex = GLFW_KEY_S - 31, .leftIndex = GLFW_KEY_A - 31, .rightIndex = GLFW_KEY_D - 31, .shootIndex = GLFW_KEY_SPACE - 31});
-    scene.dynamicSet.add(p1, DynamicTag{});
-    scene.healthSet.add(p1, {3});
-    scene.nameSet.add(p1, NameComponent{"Player 1"});
+        uint32_t e = createCube(scene, {xPos, 0.5f, zPos}, {1, 1, 1}, 0);
 
-    uint32_t p2 = createCube(scene, {5.0f, 0.5f, -2.0f}, {1, 1, 1}, MAT);
-    scene.speedSet.add(p2, {5.0f});
-    scene.rotationSpeedSet.add(p2, {100.0f});
-    scene.inputTankSet.add(p2, PlayerInputTankTag{});
-    scene.inputMapSet.add(p2, {.forwardIndex = GLFW_KEY_I - 31, .backIndex = GLFW_KEY_K - 31, .leftIndex = GLFW_KEY_J - 31, .rightIndex = GLFW_KEY_L - 31, .shootIndex = GLFW_KEY_M - 31});
-    scene.dynamicSet.add(p2, DynamicTag{});
-    scene.healthSet.add(p2, {3});
-    scene.nameSet.add(p2, NameComponent{"Player 2"});
+        if (i % lightEvery == 0) {
+            glm::vec3 colour;
+            int pattern = (i / lightEvery) % 3;
+            if (pattern == 0) colour = {1.0f, 0.2f, 0.2f};
+            else if (pattern == 1) colour = {0.2f, 1.0f, 0.2f};
+            else colour = {0.2f, 0.2f, 1.0f};
 
-    uint32_t l1 = createCube(scene, {0.0f, 0.5f, -4.0f}, {1, 1, 1}, MAT);
-    scene.pointLightSet.add(l1, {.colour = {1.0f, 1.0f, 1.0f}, .intensity = 1.0f, .radius = 10.0f});
-    scene.nameSet.add(l1, NameComponent{"Light 1"});
-
-    uint32_t l2 = createCube(scene, {-3.0f, 0.5f, 0.0f}, {1, 1, 1}, MAT);
-    scene.pointLightSet.add(l2, {.colour = {1.0f, 1.0f, 1.0f}, .intensity = 1.0f, .radius = 10.0f});
-    scene.nameSet.add(l2, NameComponent{"Light 2"});
-
-    createCube(scene, {0.0f, 0.5f, -10.0f}, {20.0f, 1.0f, 1.0f}, MAT);
-    createCube(scene, {0.0f, 0.5f, 2.0f}, {20.0f, 1.0f, 1.0f}, MAT);
-    createCube(scene, {-10.0f, 0.5f, -4.0f}, {1.0f, 1.0f, 12.0f}, MAT);
-    createCube(scene, {10.0f, 0.5f, -4.0f}, {1.0f, 1.0f, 12.0f}, MAT);
-}
-
-void addText(ECS& scene, const char* text, uint8_t textLength, float xPos, float yPos, float size) {
-    if (scene.textBuffer.size == scene.textBuffer.capacity) return;
-    TextEntry textEntry;
-    snprintf(textEntry.text, sizeof(textEntry.text), "%s", text);
-    textEntry.textLength = textLength;
-    textEntry.xPos = xPos;
-    textEntry.yPos = yPos;
-    textEntry.size = size;
-    scene.textBuffer.buffer[scene.textBuffer.size++] = textEntry;
+            uint32_t light = createCube(scene, {xPos, 5.5f, zPos}, {0.3f, 0.3f, 0.3f}, 0);
+            scene.pointLightSet.add(light, PointLightComponent{
+                .colour = colour,
+                .intensity = 1.0f,
+                .radius = 15.0f});
+        }
+    }
 }
 
 void addTextFloat(ECS& scene, const char* text, float value, uint8_t textLength, float xPos, float yPos, float size) {

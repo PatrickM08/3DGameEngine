@@ -22,7 +22,7 @@ void renderSystem(const VisibleEntityBuffer& visibleEntityBuffer, const SparseSe
         glBindVertexArray(mesh.vao);
         glProgramUniform1i(material.shaderID, 2, material.materialSSBOIndex);
         glUseProgram(material.shaderID);
-        glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
+        glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_INT, 0);
     }
 }
 
@@ -41,7 +41,7 @@ void renderSkybox(const SkyboxData& skyboxData) {
     glBindVertexArray(skyboxData.meshVAO);
     glUseProgram(skyboxData.shaderID);
     glDepthFunc(GL_LEQUAL);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
     glDepthFunc(GL_LESS);
 };
 

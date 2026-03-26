@@ -1,6 +1,6 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "asset_manager.h"
 #include "stb_image.h"
-#include "tiny_obj_loader.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -16,144 +16,47 @@ std::string getPath(const std::string& relativePath) {
 #endif
 }
 
-std::vector<float> parseOBJFile(const std::string& path, uint32_t& vertexCount, AABB& localAABB) {
-    tinyobj::ObjReader reader;
-    std::vector<float> vertices;
+void loadBinaryMesh(const std::string& path, MeshBuffer& meshBuffer) {
+    FILE* f = fopen(path.c_str(), "rb");
+    MeshFileHeader header;
+    fread(&header, sizeof(MeshFileHeader), 1, f);
 
-    if (!reader.ParseFromFile(path)) {
-        if (!reader.Error().empty()) {
-            std::cerr << "TinyObjReader: " << reader.Error();
-        }
-        exit(1);
-    }
+    std::vector<float> vertices(header.vertexCount * 8);
+    fread(vertices.data(), sizeof(float) * 8, header.vertexCount, f);
 
-    if (!reader.Warning().empty()) {
-        std::cout << "TinyObjReader: " << reader.Warning();
-    }
+    std::vector<uint32_t> indices(header.indexCount);
+    fread(indices.data(), sizeof(uint32_t), header.indexCount, f);
+    fclose(f);
 
-    auto& attrib = reader.GetAttrib();
-    auto& shapes = reader.GetShapes();
+    uint32_t VAO, VBO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
 
-    // Loop over shapes
-    for (size_t s = 0; s < shapes.size(); s++) {
-        // Loop over faces(polygon)
-        size_t index_offset = 0;
-        for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
-            size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+    glBindVertexArray(VAO);
 
-            // Loop over vertices in the face.
-            for (size_t v = 0; v < fv; v++) {
-                // access to vertex
-                tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
-                tinyobj::real_t vx = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
-                tinyobj::real_t vy = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
-                tinyobj::real_t vz = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
-                if (vx < localAABB.minX) localAABB.minX = vx;
-                else if (vx > localAABB.maxX) localAABB.maxX = vx;
-                if (vy < localAABB.minY) localAABB.minY = vy;
-                else if (vy > localAABB.maxY) localAABB.maxY = vy;
-                if (vz < localAABB.minZ) localAABB.minZ = vz;
-                else if (vz > localAABB.maxZ) localAABB.maxZ = vz;
-                vertices.insert(vertices.end(), {vx, vy, vz});
-                vertexCount++;
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
-                // Check if `normal_index` is zero or positive. negative = no normal data
-                if (idx.normal_index >= 0) {
-                    tinyobj::real_t nx = attrib.normals[3 * size_t(idx.normal_index) + 0];
-                    tinyobj::real_t ny = attrib.normals[3 * size_t(idx.normal_index) + 1];
-                    tinyobj::real_t nz = attrib.normals[3 * size_t(idx.normal_index) + 2];
-                    vertices.insert(vertices.end(), {nx, ny, nz});
-                } else {
-                    vertices.insert(vertices.end(), {0, 1, 0});
-                }
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint32_t), indices.data(), GL_STATIC_DRAW);
 
-                // Check if `texcoord_index` is zero or positive. negative = no texcoord data
-                if (idx.texcoord_index >= 0) {
-                    tinyobj::real_t tx = attrib.texcoords[2 * size_t(idx.texcoord_index) + 0];
-                    tinyobj::real_t ty = attrib.texcoords[2 * size_t(idx.texcoord_index) + 1];
-                    vertices.insert(vertices.end(), {tx, ty});
-                } else {
-                    vertices.insert(vertices.end(), {0, 0});
-                }
-            }
-            index_offset += fv;
-        }
-    }
-    return vertices;
+    GLsizei stride = 8 * sizeof(float);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    MeshData mesh;
+    mesh.handle = meshBuffer.size;
+    mesh.vao = VAO;
+    mesh.vertexCount = header.vertexCount;
+    mesh.indexCount = header.indexCount;
+    mesh.localAABB = header.localAABB;
+    meshBuffer.buffer[meshBuffer.size++] = mesh;
 }
-
-/*
-std::vector<float> AssetManager::parseOBJFile(const char* path, uint32_t& vertexCount, bool& hasTexCoords, bool& hasNormals) {
-    bool onlyPos = true;
-    std::vector<float> meshData;
-    std::vector<float> positions;
-    std::vector<float> texCoords;
-    std::vector<float> normals;
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        throw std::runtime_error("Error opening obj file.");
-    }
-    std::string line;
-    while (std::getline(file, line)) {
-        std::istringstream stream(line);
-        std::string prefix;
-        stream >> prefix;
-
-        if (prefix == "v") {
-            float x, y, z;
-            stream >> x >> y >> z;
-            positions.push_back(x);
-            positions.push_back(y);
-            positions.push_back(z);
-        }
-        else if (prefix == "vt") {
-            onlyPos = false;
-            hasTexCoords = true;
-            float x, y;
-            stream >> x >> y;
-            texCoords.push_back(x);
-            texCoords.push_back(y);
-        }
-        else if (prefix == "vn") {
-            onlyPos = false;
-            hasNormals = true;
-            float x, y, z;
-            stream >> x >> y >> z;
-            normals.push_back(x);
-            normals.push_back(y);
-            normals.push_back(z);
-        }
-        else if (prefix == "f") {
-            std::string vertex;
-            while (stream >> vertex) {
-                vertexCount++;
-                std::replace(vertex.begin(), vertex.end(), '/', ' ');
-                std::istringstream vstream(vertex);
-                int v;
-                vstream >> v;
-                v = (v - 1) * 3;
-                meshData.push_back(positions[v]);
-                meshData.push_back(positions[v + 1]);
-                meshData.push_back(positions[v + 2]);
-                if (!onlyPos) {
-                    int t, n;
-                    vstream >> t >> n;
-
-                    t = (t - 1) * 2;
-                    n = (n - 1) * 3;
-
-                    meshData.push_back(texCoords[t]);
-                    meshData.push_back(texCoords[t + 1]);
-                    meshData.push_back(normals[n]);
-                    meshData.push_back(normals[n + 1]);
-                    meshData.push_back(normals[n + 2]);
-                }
-            }
-        }
-    }
-    return meshData;
-}
-*/
 
 void updateMaterialColour(MaterialData& materialData, MaterialSSBOData& materialSSBOData, glm::vec3 newColor, uint32_t ssbo) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
@@ -258,60 +161,6 @@ uint64_t loadCubemap(const char* (&faces)[6]) {
     return textureHandle;
 }
 
-// TODO: UNBIND AFTER MESH AND TEXTURE STUFF
-// TODO: CHANGE VERTEX COUNT TO INDEX COUNT
-// TODO: CHANGE THE MESH AND MATERIAL DATA HANDLES TO 16 BIT
-// TODO: FIX THE LOCALAABB AND WORLD AABB
-// TODO: Figure out if this is correct - so we should have unit primitives lazy loaded in the asset manager but we need to improve the asset manager
-// we also need to look into gl_vertexID usage, we also need to look into deleting buffers when no longer used.
-// Assumes centre as actual position
-// TODO: PRIMITIVES RIGHT NOW ARE THE ONLY THING USING EBOS AND VERTEX COUNT IS ACTUALLY INDEX COUNT, WILL FIX AFTER WE FIX ASSET LOADING
-/*
-MeshData createUnitCubePrimitive(std::vector<MeshData>& meshes) {
-    float xOffset = 0.5f;
-    float yOffset = 0.5f;
-    float zOffset = 0.5f;
-    float vertices[24] = {-xOffset, -yOffset, zOffset,
-                          xOffset, -yOffset, zOffset,
-                          xOffset, yOffset, zOffset,
-                          -xOffset, yOffset, zOffset,
-                          -xOffset, -yOffset, -zOffset,
-                          xOffset, -yOffset, -zOffset,
-                          xOffset, yOffset, -zOffset,
-                          -xOffset, yOffset, -zOffset};
-
-    unsigned int indices[36] = {0, 1, 2, 2, 3, 0,
-                              1, 5, 6, 6, 2, 1,
-                              7, 6, 5, 5, 4, 7,
-                              4, 0, 3, 3, 7, 4,
-                              4, 5, 1, 1, 0, 4,
-                              3, 2, 6, 6, 7, 3};
-    GLuint VAO, VBO, EBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    // TODO: THIS WOULD HAVE TO BE CHANGED DEPENDING ON THE SHADER AND NORMALS AND STUFF - SHOULD PROBABLY BE STANDARDISED - ALSO SEE IF SHOULD BE STATIC
-    glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(float), vertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    uint32_t numberOfMeshes = static_cast<uint32_t>(meshes.size());
-    meshes.emplace_back(numberOfMeshes, VAO, 36, AABB{-xOffset, -yOffset, -zOffset, xOffset, yOffset, zOffset});
-    return meshes.back();
-}
-*/
-
 void initDefaultMaterials(MaterialBuffer& materialBuffer, MaterialSSBODataBuffer& materialSSBODataBuffer) {
     uint64_t defualtTexture = createDefaultTexture();
     uint64_t cubeDiffuse = loadTexture(getPath("container2.png").c_str());
@@ -338,121 +187,69 @@ uint32_t initMaterialSSBO(MaterialSSBODataBuffer& materialSSBODataBuffer) {
 }
 
 // TODO: FIX THIS
-void initMeshes(const char* path, MeshBuffer& meshBuffer) {
-    std::ifstream file(getPath(path));
-    if (!file.is_open()) {
-        throw std::runtime_error("Error opening mesh definition file.");
-    }
-
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line.empty() || line[0] == '#') {
-            continue;
-        }
-
-        if (meshBuffer.size >= meshBuffer.capacity) {
-            std::cout << "Mesh Buffer Full." << std::endl;
-            break;
-        }
-
-        std::istringstream stream(line);
-        uint32_t meshHandle;
-        std::string objPath;
-        std::string drawUsageString;
-        stream >> meshHandle >> objPath >> drawUsageString;
-
-        GLenum drawUsage = GL_STATIC_DRAW;
-        if (drawUsageString == "GL_DYNAMIC_DRAW") drawUsage = GL_DYNAMIC_DRAW;
-        else if (drawUsageString == "GL_STREAM_DRAW") drawUsage = GL_STREAM_DRAW;
-
-        uint32_t vertexCount = 0;
-        float maxFloat = std::numeric_limits<float>::max();
-        AABB localAABB{maxFloat, maxFloat, maxFloat, -maxFloat, -maxFloat, -maxFloat};
-
-        std::vector<float> vertices = parseOBJFile(getPath(objPath), vertexCount, localAABB);
-
-        uint32_t VAO, VBO;
-        glGenVertexArrays(1, &VAO);
-        glGenBuffers(1, &VBO);
-
-        glBindVertexArray(VAO);
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), drawUsage);
-
-        size_t stride = 8 * sizeof(float);
-        // Position
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
-        glEnableVertexAttribArray(0);
-        // Normals
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
-        // TexCoords
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
-        glEnableVertexAttribArray(2);
-
-        MeshData& mesh = meshBuffer.buffer[meshBuffer.size++];
-        mesh.handle = meshHandle;
-        mesh.vao = VAO;
-        mesh.vertexCount = vertexCount;
-        mesh.localAABB = localAABB;
-    }
+void initMeshes(MeshBuffer& meshBuffer) {
+    std::string baseplate = "baseplate.mesh";
+    loadBinaryMesh(baseplate, meshBuffer);
+    std::string cube = "cube.mesh";
+    loadBinaryMesh(cube, meshBuffer);
+    std::string skybox = "skybox.mesh";
+    loadBinaryMesh(skybox, meshBuffer);
 }
 
 uint32_t createUnitCubePrimitive(MeshBuffer& meshBuffer) {
-    float xOffset = 0.5f;
-    float yOffset = 0.5f;
-    float zOffset = 0.5f;
+    float h = 0.5f;
 
     float vertices[] = {
-        -xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-        xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,
-        xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
-        -xOffset, -yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-        xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
-        -xOffset, yOffset, zOffset, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+        -h, -h, h, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        h, -h, h, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,
+        h, h, h, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+        -h, h, h, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
 
-        xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
-        -xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,
-        -xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
-        xOffset, -yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
-        -xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
-        xOffset, yOffset, -zOffset, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,
+        h, -h, -h, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+        -h, -h, -h, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f,
+        -h, h, -h, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f,
+        h, h, -h, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f,
 
-        -xOffset, -yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        -xOffset, -yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-        -xOffset, yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-        -xOffset, -yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        -xOffset, yOffset, zOffset, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-        -xOffset, yOffset, -zOffset, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+        -h, -h, -h, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        -h, -h, h, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+        -h, h, h, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        -h, h, -h, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
 
-        xOffset, -yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        xOffset, -yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-        xOffset, yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-        xOffset, -yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        xOffset, yOffset, -zOffset, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-        xOffset, yOffset, zOffset, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+        h, -h, h, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        h, -h, -h, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+        h, h, -h, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+        h, h, h, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
 
-        -xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-        xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-        xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-        -xOffset, yOffset, zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-        xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-        -xOffset, yOffset, -zOffset, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+        -h, h, h, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        h, h, h, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+        h, h, -h, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+        -h, h, -h, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
 
-        -xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-        xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-        xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
-        -xOffset, -yOffset, -zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-        xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
-        -xOffset, -yOffset, zOffset, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f};
+        -h, -h, -h, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+        h, -h, -h, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        h, -h, h, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+        -h, -h, h, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f};
 
-    uint32_t VAO, VBO;
+    uint32_t indices[] = {
+        0, 1, 2, 2, 3, 0,
+        4, 5, 6, 6, 7, 4,
+        8, 9, 10, 10, 11, 8,
+        12, 13, 14, 14, 15, 12,
+        16, 17, 18, 18, 19, 16,
+        20, 21, 22, 22, 23, 20};
+
+    uint32_t VAO, VBO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
 
     glBindVertexArray(VAO);
+
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     GLsizei stride = 8 * sizeof(float);
     glEnableVertexAttribArray(0);
@@ -466,11 +263,13 @@ uint32_t createUnitCubePrimitive(MeshBuffer& meshBuffer) {
 
     uint32_t handle = static_cast<uint32_t>(meshBuffer.size);
 
-    MeshData& mesh = meshBuffer.buffer[meshBuffer.size++];
+    MeshData mesh;
     mesh.handle = handle;
     mesh.vao = VAO;
-    mesh.vertexCount = 36;
-    mesh.localAABB = AABB{-xOffset, -yOffset, -zOffset, xOffset, yOffset, zOffset};
+    mesh.vertexCount = 24;
+    mesh.indexCount = 36;
+    mesh.localAABB = AABB{-h, -h, -h, h, h, h};
+    meshBuffer.buffer[meshBuffer.size++] = mesh;
 
     return handle;
 }
