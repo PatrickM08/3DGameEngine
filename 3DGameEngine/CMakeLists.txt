@@ -1,102 +1,89 @@
-cmake_minimum_required(VERSION 3.16)
-project(ProtoPlay VERSION 1.0 LANGUAGES C CXX)
-
+cmake_minimum_required(VERSION 3.20)
+project(Protoplay)
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL "")
+# GLFW from source
+add_subdirectory(vendor/glfw)
 
-find_package(Lua REQUIRED)
+# GLAD
+add_library(glad STATIC vendor/glad/src/glad.c)
+target_include_directories(glad PUBLIC vendor/glad/include)
 
-include(FetchContent)
+# ImGui
+add_library(imgui STATIC
+    vendor/imgui/imgui.cpp
+    vendor/imgui/imgui_draw.cpp
+    vendor/imgui/imgui_tables.cpp
+    vendor/imgui/imgui_widgets.cpp
+    vendor/imgui/imgui_impl_glfw.cpp
+    vendor/imgui/imgui_impl_opengl3.cpp
+)
+target_include_directories(imgui PUBLIC vendor/imgui)
+target_link_libraries(imgui glfw glad)
 
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "")
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "")
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
-FetchContent_Declare(
-    glfw
-    GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG        3.3.8
+# Game DLL
+add_library(game SHARED
+    src/game.cpp
+    src/movement_system.cpp
+    src/collision_system.cpp
+)
+target_include_directories(game PRIVATE
+    src
+    vendor/glm-master
+    vendor/glad/include
+)
+target_link_libraries(game glfw)
+set_target_properties(game PROPERTIES PREFIX "")
+
+# Engine EXE
+add_executable(engine
+    src/application.cpp
+    src/ecs.cpp
+    src/asset_manager.cpp
+    src/render_system.cpp
+    src/window.cpp
+    src/events.cpp
+    src/camera.cpp
+    src/editor.cpp
+    src/text.cpp
+    src/serialization.cpp
+    vendor/stb/stb_setup.cpp
+)
+target_include_directories(engine PRIVATE
+    src
+    vendor/glm-master
+    vendor/glad/include
+    vendor/imgui
+    vendor/stb
+)
+target_link_libraries(engine glfw glad imgui opengl32)
+
+add_dependencies(engine game)
+
+# Copy resources directly next to exe
+add_custom_command(TARGET engine POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/resources $<TARGET_FILE_DIR:engine>
 )
 
-FetchContent_Declare(
-    glm
-    GIT_REPOSITORY https://github.com/g-truc/glm.git
-    GIT_TAG        1.0.1
+# Copy shaders directly next to exe
+file(GLOB SHADER_FILES src/*.vs src/*.fs)
+add_custom_command(TARGET engine POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy ${SHADER_FILES} $<TARGET_FILE_DIR:engine>
 )
 
-FetchContent_Declare(
-    sol2
-    GIT_REPOSITORY https://github.com/ThePhD/sol2.git
-    GIT_TAG        v3.3.0
+# Mesh Converter
+add_executable(mesh_converter
+    MeshBinaryConverter/mesh_converter.cpp
+    MeshBinaryConverter/tiny_obj_loader_implementation.cpp
 )
-
-FetchContent_MakeAvailable(glfw glm sol2)
-
-set(GLAD_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/vendor/glad/include")
-set(GLAD_SOURCES "vendor/glad/src/glad.c")
-
-add_library(glad STATIC ${GLAD_SOURCES})
-target_include_directories(glad PUBLIC ${GLAD_INCLUDE_DIR})
-
-set(ENGINE_SOURCES
-    application.cpp
-    asset_manager.cpp
-    camera.cpp
-    collision_system.cpp
-    ecs.cpp
-    movement_system.cpp
-    render_system.cpp
-    stb_setup.cpp
-    text.cpp
-    tiny_obj_loader_implementation.cpp
-    window.cpp
-    lua_interface.cpp
+target_include_directories(mesh_converter PRIVATE
+    MeshBinaryConverter
 )
-
-add_executable(${PROJECT_NAME} ${ENGINE_SOURCES})
-
-target_include_directories(${PROJECT_NAME} PRIVATE 
-    ${LUA_INCLUDE_DIR}
+set_target_properties(mesh_converter PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
-
-
-target_precompile_headers(${PROJECT_NAME} PRIVATE
-    <vector>
-    <string>
-    <iostream>
-    <memory>
-    <algorithm>
-    <map>
-    <unordered_map>
-    <glm/glm.hpp>
-    <sol/sol.hpp>
-    <glad/glad.h>
-    <GLFW/glfw3.h>
-)
-
-find_package(OpenGL REQUIRED)
-
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    glad    
-    glfw
-    OpenGL::GL
-    glm
-    ${LUA_LIBRARIES}
-    sol2
-)
-
-
-file(GLOB_RECURSE LUA_SCRIPTS "${CMAKE_SOURCE_DIR}/scripts/*.lua")
-if (LUA_SCRIPTS)
-    file(COPY ${LUA_SCRIPTS} DESTINATION "${CMAKE_BINARY_DIR}/scripts")
-endif()
-
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-    PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
-)
-
-if (APPLE)
-    target_link_libraries(${PROJECT_NAME} PRIVATE "-framework Cocoa" "-framework IOKit" "-framework CoreFoundation")
-endif()

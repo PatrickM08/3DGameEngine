@@ -135,17 +135,27 @@
     <ClCompile Include="application.cpp" />
     <ClCompile Include="asset_manager.cpp" />
     <ClCompile Include="camera.cpp" />
-    <ClCompile Include="collision_system.cpp" />
+    <ClCompile Include="collision_system.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="ecs.cpp" />
     <ClCompile Include="editor.cpp" />
     <ClCompile Include="events.cpp" />
+    <ClCompile Include="game.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="imgui.cpp" />
     <ClCompile Include="imgui_draw.cpp" />
     <ClCompile Include="imgui_impl_glfw.cpp" />
     <ClCompile Include="imgui_impl_opengl3.cpp" />
     <ClCompile Include="imgui_tables.cpp" />
     <ClCompile Include="imgui_widgets.cpp" />
-    <ClCompile Include="movement_system.cpp" />
+    <ClCompile Include="movement_system.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="render_system.cpp" />
     <ClCompile Include="serialization.cpp" />
     <ClCompile Include="stb_setup.cpp" />
@@ -161,6 +171,7 @@
     <ClInclude Include="editor.h" />
     <ClInclude Include="entity.h" />
     <ClInclude Include="events.h" />
+    <ClInclude Include="hot_reload.h" />
     <ClInclude Include="imconfig.h" />
     <ClInclude Include="imgui.h" />
     <ClInclude Include="imgui_impl_glfw.h" />
