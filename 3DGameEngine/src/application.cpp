@@ -55,13 +55,12 @@ int run(ECS& scene) {
         static bool reloadPressed = false;
         if (glfwGetKey(windowPtr, GLFW_KEY_B) == GLFW_PRESS && !reloadPressed) {
             reloadPressed = true;
-            printf("Manual reload triggered\n");
+            system("cmake --build .. --target game");
             loadGameDLL(gameDLL, "game.dll", "game_temp.dll");
         }
         if (glfwGetKey(windowPtr, GLFW_KEY_B) == GLFW_RELEASE) {
             reloadPressed = false;
         }
-
         setGui(scene);
 
         if (!scene.cameraSet.hasComponent(scene.currentCamera) && scene.cameraSet.entityCount > 0)
