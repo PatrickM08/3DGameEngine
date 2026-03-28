@@ -39,12 +39,7 @@ cd build/bin
 Place the output `.mesh` files in the `resources/` directory.
 
 ### Hot Reloading
-Edit gameplay code in `src/game.cpp`, `src/movement_system.cpp`, or `src/collision_system.cpp`. Then rebuild only the gameplay DLL:
-```
-cmake --build build --target game
-```
-
-Press **B** in the engine window to reload the new code. The game state is preserved across reloads.
+Edit gameplay code in `src/game.cpp`, `src/movement_system.cpp`, or `src/collision_system.cpp`. Then press **B** in the engine window to reload the new code. The game state is preserved across reloads.
 
 ### Project Structure
 ```
